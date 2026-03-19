@@ -1,0 +1,12 @@
+---
+description: Always maintain version control; commit changes with clear messages
+alwaysApply: true
+---
+
+# Version control
+
+- **Always maintain version control** for this project.
+- After making meaningful changes (features, fixes, refactors), create a commit with a clear, present-tense message (e.g. "Add right panel for advanced settings", "Fix heading slot height to hug text").
+- Prefer small, logical commits over one large commit.
+- Do not commit secrets, `.env` files, or build artifacts (they are in `.gitignore`).
+- When suggesting or describing changes, remind to run `git add` and `git commit` (and optionally `git status` / `git diff`) so the work is tracked.
