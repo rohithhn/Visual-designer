@@ -64,6 +64,71 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Grouped panel block with optional hint — keeps hierarchy scannable without hiding controls */
+function SettingsSection({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-[var(--radius)] border border-border bg-card/30 overflow-hidden mb-3">
+      <div className="px-3 py-2.5 border-b border-border/80 bg-muted/40">
+        <h2 className="text-foreground m-0" style={{ fontSize: "var(--text-sm)", fontWeight: 700, letterSpacing: "0.02em" }}>
+          {title}
+        </h2>
+        {hint ? (
+          <p className="text-muted-foreground m-0 mt-1" style={{ fontSize: "var(--text-2xs)", lineHeight: 1.45 }}>
+            {hint}
+          </p>
+        ) : null}
+      </div>
+      <div className="p-3 space-y-3">{children}</div>
+    </section>
+  );
+}
+
+/** Collapsible for dense areas; all features stay available, default open */
+function CollapsibleBlock({
+  title,
+  hint,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <details defaultOpen={defaultOpen} className="group rounded-[var(--radius)] border border-border/90 bg-muted/20 overflow-hidden">
+      <summary className="cursor-pointer list-none flex items-start justify-between gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors [&::-webkit-details-marker]:hidden">
+        <div className="min-w-0 flex-1">
+          <span className="text-foreground block" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
+            {title}
+          </span>
+          {hint ? (
+            <span className="text-muted-foreground block mt-0.5" style={{ fontSize: "var(--text-2xs)", lineHeight: 1.4 }}>
+              {hint}
+            </span>
+          ) : null}
+        </div>
+        <span
+          className="text-muted-foreground shrink-0 mt-0.5 transition-transform group-open:rotate-180"
+          style={{ fontSize: "10px" }}
+          aria-hidden
+        >
+          ▼
+        </span>
+      </summary>
+      <div className="px-3 pb-3 pt-0 border-t border-border/60 space-y-3">{children}</div>
+    </details>
+  );
+}
+
 function SliderControl({
   label,
   value,
@@ -155,26 +220,46 @@ export function RightPanel({ settings, onSettingsChange, onContentGenerated }: R
 
   return (
     <div className="bg-muted border-l border-border p-4 sm:p-5 overflow-y-auto" style={{ maxHeight: "100vh", fontFamily: "'Inter', sans-serif" }}>
-      <div className="flex items-center gap-2 mb-4">
-        <div className="w-[3px] h-[18px] bg-primary rounded-sm" />
-        <span className="text-foreground" style={{ fontSize: "var(--text-base)", fontWeight: 700 }}>Advanced Settings</span>
-      </div>
+      <header className="mb-4 pb-3 border-b border-border">
+        <div className="flex items-center gap-2">
+          <div className="w-[3px] h-[18px] bg-primary rounded-sm shrink-0" aria-hidden />
+          <div className="min-w-0">
+            <span className="text-foreground block" style={{ fontSize: "var(--text-base)", fontWeight: 700 }}>
+              Advanced settings
+            </span>
+            <p className="text-muted-foreground m-0 mt-1" style={{ fontSize: "var(--text-2xs)", lineHeight: 1.45 }}>
+              Tune text, layout, and typography. The preview updates live; nothing here runs a new AI job unless you generate from the left panel.
+            </p>
+          </div>
+        </div>
+      </header>
 
-      {/* Generated Content Preview & Edit */}
+      {/* 1 — Text on canvas (content + visibility) */}
       {content && (content.heading || content.subheading || content.footer) && (
-        <div className="bg-accent/10 border border-accent rounded-[var(--radius)] p-3 mb-4">
-          <div className="flex justify-between items-center mb-2">
-            <span style={{ fontWeight: 700, fontSize: "var(--text-sm)", color: "var(--accent)" }}>AI-Generated</span>
-            <button type="button" className="cursor-pointer bg-transparent border-none underline" style={{ fontSize: "var(--text-sm)", color: "var(--accent)" }} onClick={handleEditToggle}>
-              {isEditMode ? "Save" : "Edit"}
+        <SettingsSection
+          title="Text on canvas"
+          hint="Edit copy and choose which lines show. Off = hidden in the preview (layout still reserves space where applicable)."
+        >
+          <div className="flex justify-end -mt-1 mb-1">
+            <button
+              type="button"
+              className="cursor-pointer bg-primary/10 hover:bg-primary/15 text-primary border border-primary/25 rounded-[var(--radius-utility)] px-2.5 py-1 transition-colors"
+              style={{ fontSize: "var(--text-2xs)", fontWeight: 600 }}
+              onClick={handleEditToggle}
+            >
+              {isEditMode ? "Save changes" : "Edit text"}
             </button>
           </div>
           {editableFields.map((field) => (
-            <div key={field} className="mb-2">
-              <div className="flex justify-between items-center mb-1">
-                <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: "var(--accent)" }}>{fieldLabels[field]}</span>
-                <label className="flex items-center gap-1.5 cursor-pointer" style={{ fontSize: "var(--text-sm)" }}>
-                  <span className="text-muted-foreground">{fieldChecks[field] ? "On" : "Off"}</span>
+            <div key={field} className="rounded-[var(--radius)] border border-border/80 bg-background/40 p-2.5">
+              <div className="flex justify-between items-center gap-2 mb-1.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-foreground truncate" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
+                    {fieldLabels[field]}
+                  </span>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer shrink-0" style={{ fontSize: "var(--text-2xs)" }}>
+                  <span className="text-muted-foreground whitespace-nowrap">Show on canvas</span>
                   <input
                     type="checkbox"
                     checked={fieldChecks[field]}
@@ -212,15 +297,21 @@ export function RightPanel({ settings, onSettingsChange, onContentGenerated }: R
               )}
             </div>
           ))}
-        </div>
+        </SettingsSection>
       )}
 
-      {/* Visual Slot Size & Position */}
-      <div className="space-y-4 mb-4 pb-4 border-b border-border">
-        <FieldLabel>Visual Slot</FieldLabel>
-        <div className="grid grid-cols-2 gap-3">
+      {/* 2 — Layout */}
+      <SettingsSection
+        title="Layout"
+        hint="Visual area size and vertical text anchors. Height % is share of the space between your text blocks and the footer."
+      >
+        <CollapsibleBlock
+          title="Visual area (generated image)"
+          hint="Width, height (% of available vertical space), and vertical position."
+          defaultOpen
+        >
           <SliderControl
-            label="Width"
+            label="Width (% of canvas)"
             value={visualSlot.widthPct}
             min={20}
             max={100}
@@ -229,7 +320,7 @@ export function RightPanel({ settings, onSettingsChange, onContentGenerated }: R
             onChange={(v) => onSettingsChange({ visualSlot: { ...visualSlot, widthPct: v } })}
           />
           <SliderControl
-            label="Height"
+            label="Height (% of space above footer)"
             value={visualSlot.heightPct}
             min={10}
             max={100}
@@ -238,7 +329,7 @@ export function RightPanel({ settings, onSettingsChange, onContentGenerated }: R
             onChange={(v) => onSettingsChange({ visualSlot: { ...visualSlot, heightPct: v } })}
           />
           <SliderControl
-            label="Y position"
+            label="Vertical position (Y)"
             value={visualSlot.yPct}
             min={2}
             max={95}
@@ -246,22 +337,32 @@ export function RightPanel({ settings, onSettingsChange, onContentGenerated }: R
             unit="%"
             onChange={(v) => onSettingsChange({ visualSlot: { ...visualSlot, yPct: v } })}
           />
-        </div>
-      </div>
+        </CollapsibleBlock>
 
-      {/* Text Slot Y-Positions */}
-      <div className="space-y-4 mb-4 pb-4 border-b border-border">
-        <FieldLabel>Text Slot Y-Positions</FieldLabel>
-        {editableFields.map((slot) => {
-          const slotColors: Record<string, string> = { heading: "var(--primary)", subheading: "var(--accent)", footer: "var(--destructive)" };
-          const ts = textSlots[slot];
-          const isEnabled = fieldChecks[slot];
-          return (
-            <div key={slot} className="mb-2">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-2.5 h-2.5 rounded-sm" style={{ background: slotColors[slot] }} />
+        <CollapsibleBlock
+          title="Text vertical position"
+          hint="Moves each text band up/down (% from top). Disabled when that line is hidden."
+          defaultOpen
+        >
+          {editableFields.map((slot) => {
+            const slotColors: Record<string, string> = {
+              heading: "var(--primary)",
+              subheading: "var(--accent)",
+              footer: "var(--destructive)",
+            };
+            const ts = textSlots[slot];
+            const isEnabled = fieldChecks[slot];
+            return (
+              <div key={slot}>
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: slotColors[slot] }} title={fieldLabels[slot]} />
+                  <span className="text-muted-foreground" style={{ fontSize: "var(--text-2xs)", fontWeight: 600 }}>
+                    {fieldLabels[slot]}
+                    {!isEnabled ? " — hidden" : ""}
+                  </span>
+                </div>
                 <SliderControl
-                  label={`${fieldLabels[slot]}${!isEnabled ? " (off)" : ""}`}
+                  label="Y position"
                   value={ts.yPct}
                   min={2}
                   max={95}
@@ -271,29 +372,28 @@ export function RightPanel({ settings, onSettingsChange, onContentGenerated }: R
                   onChange={(v) => onSettingsChange({ textSlots: { ...textSlots, [slot]: { yPct: v } } })}
                 />
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </CollapsibleBlock>
 
-      {/* Spacing between heading, subheading, visual, footer */}
-      <div className="space-y-4 mb-4 pb-4 border-b border-border">
-        <FieldLabel>Spacing between slots</FieldLabel>
-        <p className="text-muted-foreground mb-2" style={{ fontSize: "var(--text-sm)" }}>
-          Gap between heading, subheading, visual, and footer.
-        </p>
-        <SliderControl
-          label="Slot gap"
-          value={s.slotGap ?? 14}
-          min={0}
-          max={48}
-          step={2}
-          unit="px"
-          onChange={(v) => onSettingsChange({ slotGap: v })}
-        />
-      </div>
+        <CollapsibleBlock title="Spacing" hint="Extra gap between heading, subheading, visual, and footer." defaultOpen>
+          <SliderControl
+            label="Gap between slots"
+            value={s.slotGap ?? 14}
+            min={0}
+            max={48}
+            step={2}
+            unit="px"
+            onChange={(v) => onSettingsChange({ slotGap: v })}
+          />
+        </CollapsibleBlock>
+      </SettingsSection>
 
-      {/* Typography & Colors */}
+      {/* 3 — Typography & colors */}
+      <SettingsSection
+        title="Typography & colors"
+        hint="Default size/weight/color per line. Click individual words below a line for overrides (color, gradient, size, weight, bold, strikethrough)."
+      >
       {editableFields.map((field) => {
         const fs2 = fontSettings[field];
         const cs = tColors[field] ?? defaultTextColorSettings[field];
@@ -318,17 +418,20 @@ export function RightPanel({ settings, onSettingsChange, onContentGenerated }: R
           { label: "Coral", value: "#F4A89A" },
         ];
         return (
-          <div
+          <CollapsibleBlock
             key={field}
-            className="mb-4 pb-3"
-            style={{ borderBottom: field !== "footer" ? "1px solid var(--border)" : "none", opacity: isEnabled ? 1 : 0.4 }}
+            title={fieldLabels[field]}
+            hint={
+              isEnabled
+                ? "Font size, weight, and slot color (or brand gradient). Click words below for per-word overrides."
+                : "Hidden on canvas — turn on under Text on canvas to show it."
+            }
+            defaultOpen={field === "heading"}
           >
-            <span className="text-foreground block mb-2" style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}>
-              {fieldLabels[field]} {!isEnabled && <span className="text-muted-foreground" style={{ fontWeight: 400 }}>(disabled)</span>}
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <div style={{ opacity: isEnabled ? 1 : 0.45 }}>
+            <div className="grid grid-cols-1 gap-3 mb-3">
               <SliderControl
-                label="Size"
+                label="Font size"
                 value={fs2.size}
                 min={12}
                 max={120}
@@ -337,7 +440,7 @@ export function RightPanel({ settings, onSettingsChange, onContentGenerated }: R
                 onChange={(v) => onSettingsChange({ fontSettings: { ...fontSettings, [field]: { ...fs2, size: v } } })}
               />
               <div>
-                <span className="text-muted-foreground block mb-1" style={{ fontSize: "var(--text-sm)" }}>Weight</span>
+                <span className="text-muted-foreground block mb-1" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>Font weight</span>
                 <select
                   value={fs2.weight}
                   disabled={!isEnabled}
@@ -352,7 +455,7 @@ export function RightPanel({ settings, onSettingsChange, onContentGenerated }: R
               </div>
             </div>
             <div className="mb-2">
-              <span className="text-muted-foreground block mb-1.5" style={{ fontSize: "var(--text-sm)" }}>Color</span>
+              <span className="text-muted-foreground block mb-1.5" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>Slot color</span>
               <div className="flex flex-wrap gap-1.5 items-center">
                 {colorPresets.map((cp) => (
                   <button
@@ -422,9 +525,12 @@ export function RightPanel({ settings, onSettingsChange, onContentGenerated }: R
             </div>
             {words.length > 0 && isEnabled && (
               <div>
-                <span className="text-muted-foreground block mb-1" style={{ fontSize: "var(--text-sm)" }}>
-                  Word Styling <span style={{ opacity: 0.6 }}>(click a word)</span>
+                <span className="text-muted-foreground block mb-1" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
+                  Per-word styling
                 </span>
+                <p className="text-muted-foreground m-0 mb-1.5" style={{ fontSize: "var(--text-2xs)", lineHeight: 1.4 }}>
+                  Click a word chip, then set color, brand gradient, size, weight, bold, or strikethrough.
+                </p>
                 <div className="flex flex-wrap gap-1 p-2 rounded-[var(--radius)] border border-border bg-muted/50" style={{ minHeight: 32 }}>
                   {words.map((word, i) => {
                     const ws = cs.wordStyles?.[i];
@@ -579,9 +685,11 @@ export function RightPanel({ settings, onSettingsChange, onContentGenerated }: R
                 })()}
               </div>
             )}
-          </div>
+            </div>
+          </CollapsibleBlock>
         );
       })}
+      </SettingsSection>
     </div>
   );
 }
