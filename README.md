@@ -1,8 +1,6 @@
 
   # visual designer
 
-  This is a code bundle for visual designer. The original project is available at https://www.figma.com/design/AqJGh4ZyfXqJROyXZGV9zT/visual-designer.
-
   ## Running the code
 
   Run `npm i` to install the dependencies.
