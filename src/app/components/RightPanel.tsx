@@ -9,6 +9,9 @@ interface WordStyle {
   color?: string;
   bold?: boolean;
   strikethrough?: boolean;
+  fontSize?: number;
+  weight?: number;
+  useGradient?: boolean;
 }
 
 interface SlotColorSettings {
@@ -39,6 +42,7 @@ export interface RightPanelSettings {
     subheading: TextSlotPos;
     footer: TextSlotPos;
   };
+  slotGap?: number;
   textColorSettings?: {
     heading: SlotColorSettings;
     subheading: SlotColorSettings;
@@ -272,6 +276,23 @@ export function RightPanel({ settings, onSettingsChange, onContentGenerated }: R
         })}
       </div>
 
+      {/* Spacing between heading, subheading, visual, footer */}
+      <div className="space-y-4 mb-4 pb-4 border-b border-border">
+        <FieldLabel>Spacing between slots</FieldLabel>
+        <p className="text-muted-foreground mb-2" style={{ fontSize: "var(--text-sm)" }}>
+          Gap between heading, subheading, visual, and footer.
+        </p>
+        <SliderControl
+          label="Slot gap"
+          value={s.slotGap ?? 14}
+          min={0}
+          max={48}
+          step={2}
+          unit="px"
+          onChange={(v) => onSettingsChange({ slotGap: v })}
+        />
+      </div>
+
       {/* Typography & Colors */}
       {editableFields.map((field) => {
         const fs2 = fontSettings[field];
@@ -317,25 +338,17 @@ export function RightPanel({ settings, onSettingsChange, onContentGenerated }: R
               />
               <div>
                 <span className="text-muted-foreground block mb-1" style={{ fontSize: "var(--text-sm)" }}>Weight</span>
-                <div className="grid grid-cols-3 gap-1">
+                <select
+                  value={fs2.weight}
+                  disabled={!isEnabled}
+                  onChange={(e) => onSettingsChange({ fontSettings: { ...fontSettings, [field]: { ...fs2, weight: Number(e.target.value) } } })}
+                  className="w-full px-3 py-2 rounded-[var(--radius)] border-2 border-border bg-input-background text-foreground cursor-pointer disabled:opacity-50"
+                  style={{ fontSize: "var(--text-sm)" }}
+                >
                   {weightOptions.map((w) => (
-                    <button
-                      key={w.value}
-                      type="button"
-                      onClick={() => onSettingsChange({ fontSettings: { ...fontSettings, [field]: { ...fs2, weight: w.value } } })}
-                      className="py-1 px-1 rounded-[var(--radius-utility)] border cursor-pointer transition-all"
-                      style={{
-                        fontSize: "var(--text-sm)",
-                        fontWeight: w.value,
-                        background: fs2.weight === w.value ? "var(--primary)" : "var(--card)",
-                        color: fs2.weight === w.value ? "var(--primary-foreground)" : "var(--foreground)",
-                        borderColor: fs2.weight === w.value ? "var(--primary)" : "var(--border)",
-                      }}
-                    >
-                      {w.label}
-                    </button>
+                    <option key={w.value} value={w.value}>{w.label}</option>
                   ))}
-                </div>
+                </select>
               </div>
             </div>
             <div className="mb-2">
@@ -425,11 +438,14 @@ export function RightPanel({ settings, onSettingsChange, onContentGenerated }: R
                         onKeyDown={(e) => e.key === "Enter" && setSelectedWord(isSelected ? null : { field, index: i })}
                         className="px-1.5 py-0.5 rounded cursor-pointer transition-all hover:bg-primary/10"
                         style={{
-                          fontSize: "var(--text-sm)",
-                          fontWeight: ws?.bold ? 700 : 400,
+                          fontSize: ws?.fontSize ? `${ws.fontSize}px` : "var(--text-sm)",
+                          fontWeight: ws?.weight ?? (ws?.bold ? 700 : 400),
                           textDecoration: ws?.strikethrough ? "line-through" : "none",
-                          color: isSelected ? "var(--primary-foreground)" : (ws?.color || "var(--foreground)"),
-                          background: isSelected ? "var(--primary)" : "transparent",
+                          color: isSelected ? "var(--primary-foreground)" : (ws?.useGradient ? "transparent" : (ws?.color || "var(--foreground)")),
+                          background: isSelected ? "var(--primary)" : (ws?.useGradient && !isSelected ? "linear-gradient(135deg, var(--gradient-start), var(--gradient-end))" : "transparent"),
+                          WebkitBackgroundClip: ws?.useGradient && !isSelected ? "text" : undefined,
+                          WebkitTextFillColor: ws?.useGradient && !isSelected ? "transparent" : undefined,
+                          backgroundClip: ws?.useGradient && !isSelected ? "text" : undefined,
                           borderRadius: "var(--radius-utility)",
                         }}
                       >
@@ -441,10 +457,13 @@ export function RightPanel({ settings, onSettingsChange, onContentGenerated }: R
                 {selectedWord?.field === field && (() => {
                   const wi = selectedWord.index;
                   const ws = cs.wordStyles?.[wi] || {};
+                  const slotSize = fs2.size;
+                  const slotWeight = fs2.weight;
                   const updateWord = (patch: Partial<WordStyle>) => {
                     const newWs = { ...ws, ...patch };
                     const newWordStyles = { ...(cs.wordStyles ?? {}), [wi]: newWs };
-                    if (!newWs.color && !newWs.bold && !newWs.strikethrough) {
+                    const isEmpty = !newWs.color && !newWs.bold && !newWs.strikethrough && newWs.fontSize == null && newWs.weight == null && !newWs.useGradient;
+                    if (isEmpty) {
                       const { [wi]: _, ...rest } = newWordStyles;
                       onSettingsChange({ textColorSettings: { ...tColors, [field]: { ...cs, wordStyles: rest } } });
                     } else {
@@ -459,35 +478,101 @@ export function RightPanel({ settings, onSettingsChange, onContentGenerated }: R
                           ✕
                         </button>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => updateWord({ bold: !ws.bold })}
-                          className="flex-1 py-1 rounded-[var(--radius-utility)] border-2 cursor-pointer transition-all"
-                          style={{
-                            fontSize: "var(--text-sm)",
-                            fontWeight: 700,
-                            background: ws.bold ? "var(--primary)" : "var(--card)",
-                            color: ws.bold ? "var(--primary-foreground)" : "var(--foreground)",
-                            borderColor: ws.bold ? "var(--primary)" : "var(--border)",
-                          }}
-                        >
-                          B
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateWord({ strikethrough: !ws.strikethrough })}
-                          className="flex-1 py-1 rounded-[var(--radius-utility)] border-2 cursor-pointer transition-all"
-                          style={{
-                            fontSize: "var(--text-sm)",
-                            textDecoration: "line-through",
-                            background: ws.strikethrough ? "var(--primary)" : "var(--card)",
-                            color: ws.strikethrough ? "var(--primary-foreground)" : "var(--foreground)",
-                            borderColor: ws.strikethrough ? "var(--primary)" : "var(--border)",
-                          }}
-                        >
-                          S
-                        </button>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-muted-foreground" style={{ fontSize: "var(--text-2xs)", minWidth: 52 }}>Color</span>
+                          {colorPresets.map((cp) => (
+                            <button
+                              key={cp.value}
+                              type="button"
+                              title={cp.label}
+                              onClick={() => updateWord({ color: ws.color === cp.value ? undefined : cp.value, useGradient: false })}
+                              className="w-6 h-6 rounded-full border-2 cursor-pointer transition-all hover:scale-110"
+                              style={{ background: cp.value, borderColor: ws.color === cp.value && !ws.useGradient ? "var(--primary)" : "var(--border)" }}
+                            />
+                          ))}
+                          <label className="relative w-6 h-6 rounded-full border-2 border-border cursor-pointer overflow-hidden flex-shrink-0 block" title="Custom color">
+                            <div className="absolute inset-0 pointer-events-none" style={{ background: ws.color || "var(--muted)" }} />
+                            <input
+                              type="color"
+                              value={ws.color || "#7F56D9"}
+                              onChange={(e) => updateWord({ color: e.target.value, useGradient: false })}
+                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => updateWord(ws.useGradient ? { useGradient: false } : { useGradient: true, color: undefined })}
+                            className="ml-0.5 flex items-center gap-1 py-1 px-2 rounded-[var(--radius-utility)] border-2 cursor-pointer transition-all"
+                            style={{
+                              background: ws.useGradient ? "linear-gradient(135deg, var(--gradient-start), var(--gradient-end))" : "var(--card)",
+                              color: ws.useGradient ? "#FFFFFF" : "var(--foreground)",
+                              borderColor: ws.useGradient ? "var(--primary)" : "var(--border)",
+                              fontSize: "var(--text-2xs)",
+                              fontWeight: 600,
+                            }}
+                            title="Brand gradient (orange → pink)"
+                          >
+                            <span style={{ WebkitTextFillColor: ws.useGradient ? "white" : "transparent", background: "linear-gradient(135deg, var(--gradient-start), var(--gradient-end))", WebkitBackgroundClip: "text" }}>✦</span>
+                            Brand gradient
+                          </button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground" style={{ fontSize: "var(--text-2xs)", minWidth: 52 }}>Size</span>
+                          <input
+                            type="number"
+                            min={8}
+                            max={120}
+                            value={ws.fontSize ?? slotSize}
+                            onChange={(e) => { const v = parseInt(e.target.value, 10); if (!Number.isNaN(v)) updateWord({ fontSize: v === slotSize ? undefined : v }); }}
+                            className="w-16 px-2 py-1 rounded border border-border bg-input-background text-foreground"
+                            style={{ fontSize: "var(--text-sm)" }}
+                          />
+                          <span className="text-muted-foreground" style={{ fontSize: "var(--text-2xs)" }}>px</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground" style={{ fontSize: "var(--text-2xs)", minWidth: 52 }}>Weight</span>
+                          <select
+                            value={ws.weight ?? slotWeight}
+                            onChange={(e) => { const v = Number(e.target.value); updateWord({ weight: v === slotWeight ? undefined : v }); }}
+                            className="flex-1 min-w-0 px-2 py-1 rounded border border-border bg-input-background text-foreground cursor-pointer"
+                            style={{ fontSize: "var(--text-sm)" }}
+                          >
+                            {weightOptions.map((w) => (
+                              <option key={w.value} value={w.value}>{w.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex gap-2 pt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => updateWord({ bold: !ws.bold })}
+                            className="flex-1 py-1 rounded-[var(--radius-utility)] border-2 cursor-pointer transition-all"
+                            style={{
+                              fontSize: "var(--text-sm)",
+                              fontWeight: 700,
+                              background: ws.bold ? "var(--primary)" : "var(--card)",
+                              color: ws.bold ? "var(--primary-foreground)" : "var(--foreground)",
+                              borderColor: ws.bold ? "var(--primary)" : "var(--border)",
+                            }}
+                          >
+                            B
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateWord({ strikethrough: !ws.strikethrough })}
+                            className="flex-1 py-1 rounded-[var(--radius-utility)] border-2 cursor-pointer transition-all"
+                            style={{
+                              fontSize: "var(--text-sm)",
+                              textDecoration: "line-through",
+                              background: ws.strikethrough ? "var(--primary)" : "var(--card)",
+                              color: ws.strikethrough ? "var(--primary-foreground)" : "var(--foreground)",
+                              borderColor: ws.strikethrough ? "var(--primary)" : "var(--border)",
+                            }}
+                          >
+                            S
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );

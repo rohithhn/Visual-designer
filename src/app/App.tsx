@@ -110,6 +110,7 @@ interface Settings {
     footer: TextSlotPos;
   };
   mode: "general" | "blog";
+  slotGap?: number;
   textColorSettings?: {
     heading: {
       baseColor: string;
@@ -181,6 +182,7 @@ export default function App() {
       footer: { yPct: 80 },
     },
     mode: "general",
+    slotGap: 14,
     textColorSettings: {
       heading: {
         baseColor: "#FFFFFF",

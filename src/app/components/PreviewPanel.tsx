@@ -17,6 +17,10 @@ interface WordStyle {
   color?: string;
   bold?: boolean;
   strikethrough?: boolean;
+  fontSize?: number;
+  weight?: number;
+  /** Per-word brand gradient (orange → pink) */
+  useGradient?: boolean;
 }
 
 interface SlotColorSettings {
@@ -70,7 +74,7 @@ const weightStr = (w: number) => {
 };
 
 const CANVAS_FONT = "Inter, sans-serif";
-const SLOT_GAP = 14;
+const DEFAULT_SLOT_GAP = 14;
 
 /** Count wrapped lines and return total pixel height */
 function measureWrappedHeight(
@@ -133,6 +137,7 @@ export function PreviewPanel({ settings, shouldRender }: PreviewPanelProps) {
     subheading: { baseColor: "#000000", useGradient: false, wordStyles: {} },
     footer: { baseColor: "#FFFFFF", useGradient: true, wordStyles: {} },
   };
+  const slotGap = s?.slotGap ?? DEFAULT_SLOT_GAP;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -156,17 +161,20 @@ export function PreviewPanel({ settings, shouldRender }: PreviewPanelProps) {
       return flags[k] ? (content[k] ?? "") : "";
     };
 
-    // ── 1. Slot height hugs text: ascent (first line) + wrapped text height; no extra bottom padding ──
-    const ascentOf = (k: "heading" | "subheading" | "footer") => fs[k].size * 0.75;
+    // ── 1. Slot height hugs text: no extra bottom space (last line needs descent only, not full lineHeight) ──
+    const ascentOf = (k: "heading" | "subheading" | "footer") => fs[k].size * 0.65;
+    const descentOf = (k: "heading" | "subheading" | "footer") => fs[k].size * 0.25;
     const computeSlotH = (k: "heading" | "subheading" | "footer") => {
       const txt = textOf(k);
-      const textH = txt
-        ? measureWrappedHeight(ctx, txt, fontOf(k), maxTextW, lhOf(k))
+      const lineH = lhOf(k);
+      const rawTextH = txt
+        ? measureWrappedHeight(ctx, txt, fontOf(k), maxTextW, lineH)
         : 0;
       const ascent = ascentOf(k);
-      // When empty: one line height so slot doesn't collapse
-      const minH = ascent + lhOf(k);
-      return textH > 0 ? ascent + textH : minH;
+      const descent = descentOf(k);
+      if (rawTextH <= 0) return ascent + lineH; // empty: one line min
+      // rawTextH = lines*lineH; slot = ascent + (lines-1)*lineH + descent = ascent + rawTextH - lineH + descent
+      return ascent + rawTextH - lineH + descent;
     };
 
     const headingH = useH ? computeSlotH("heading") : 0;
@@ -184,7 +192,7 @@ export function PreviewPanel({ settings, shouldRender }: PreviewPanelProps) {
 
     if (currentMode === "blog") {
       // Blog mode: text overlays on top of full-bleed visual
-      const logoAreaH = Math.min(W, H) / 12 * (logoScale / 100) + pad + SLOT_GAP;
+      const logoAreaH = Math.min(W, H) / 12 * (logoScale / 100) + pad + slotGap;
       const isLogoTop = logoPos.startsWith("top");
       const visualTopY = isLogoTop ? logoAreaH : pad;
       const visualBottomLimit = isLogoTop ? H - pad : H - logoAreaH;
@@ -195,52 +203,51 @@ export function PreviewPanel({ settings, shouldRender }: PreviewPanelProps) {
       if (useSH) items.push({ id: "subheading", desiredY: H * (tSlots.subheading.yPct / 100), h: subheadingH });
       if (useF) items.push({ id: "footer", desiredY: H * (tSlots.footer.yPct / 100), h: footerH });
     } else {
-      const visualY = H * ((vSlot.yPct ?? 14) / 100);
-      // Dynamic visual height: use space between visual Y and footer (or canvas bottom); scale by heightPct
-      const footerDesiredY = useF ? H * (tSlots.footer.yPct / 100) : H - pad;
-      const bottomLimit = footerDesiredY - SLOT_GAP;
-      const availableHeight = Math.max(40, Math.min(bottomLimit - visualY, H - pad - visualY));
-      const visualH = availableHeight * (vSlot.heightPct / 100);
-
+      // General mode: visual desiredY for sort order only; height will be set dynamically to fill remaining space
+      const visualDesiredY = H * ((vSlot.yPct ?? 14) / 100);
       if (useH) items.push({ id: "heading", desiredY: H * (tSlots.heading.yPct / 100), h: headingH });
       if (useSH) items.push({ id: "subheading", desiredY: H * (tSlots.subheading.yPct / 100), h: subheadingH });
-
-      items.push({ id: "visual", desiredY: visualY, h: visualH });
-
+      items.push({ id: "visual", desiredY: visualDesiredY, h: 0 });
       if (useF) items.push({ id: "footer", desiredY: H * (tSlots.footer.yPct / 100), h: footerH });
     }
 
     // Sort by desiredY
     items.sort((a, b) => a.desiredY - b.desiredY);
 
-    // ── 3. Resolve collisions top-down ──
+    // ── 3. Resolve collisions; in general mode visual slot fills remaining space between slots ──
     const resolved: Record<string, { y: number; h: number }> = {};
     let cursor = Math.max(pad * 0.4, 8);
+    const minVisualH = 40;
 
-    for (const item of items) {
-      const targetY = Math.max(item.desiredY, cursor);
-      resolved[item.id] = { y: targetY, h: item.h };
-      cursor = targetY + item.h + SLOT_GAP;
-    }
-
-    // Clamp bottom: push last item up if it overflows
-    const lastItem = items[items.length - 1];
-    if (lastItem) {
-      const lr = resolved[lastItem.id];
-      if (lr.y + lr.h > H - 8) {
-        lr.y = Math.max(8, H - 8 - lr.h);
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const nextItem = items[i + 1];
+      if (currentMode !== "blog" && item.id === "visual") {
+        // Visual slot: fill space down to footer (footer is anchored to bottom so no gap below)
+        const visualY = cursor;
+        const footerTop = useF ? H - pad - footerH : H - pad;
+        const nextTop = nextItem && nextItem.id === "footer" ? footerTop : (nextItem ? nextItem.desiredY : H - pad);
+        const availableH = nextTop - slotGap - visualY;
+        const visualH = Math.max(minVisualH, availableH * ((vSlot.heightPct ?? 100) / 100));
+        resolved.visual = { y: visualY, h: visualH };
+        cursor = visualY + visualH + slotGap;
+      } else if (currentMode !== "blog" && item.id === "footer") {
+        // Anchor footer to bottom so there is no empty space below it
+        resolved.footer = { y: H - pad - item.h, h: item.h };
+        cursor = H - pad - item.h + item.h + slotGap;
+      } else {
+        const targetY = Math.max(item.desiredY, cursor);
+        resolved[item.id] = { y: targetY, h: item.h };
+        cursor = targetY + item.h + slotGap;
       }
     }
 
-    // In general mode, constrain visual slot height so it doesn't overlap footer or overflow canvas
-    if (currentMode !== "blog" && resolved.visual) {
-      const vr = resolved.visual;
-      const footerY = resolved.footer ? resolved.footer.y : H - pad;
-      const maxVisualH = footerY - vr.y - SLOT_GAP;
-      const bottomLimit = H - pad - vr.y;
-      const allowedH = Math.min(maxVisualH, bottomLimit);
-      if (allowedH > 0 && vr.h > allowedH) {
-        vr.h = Math.max(40, allowedH);
+    // Clamp bottom: push last item up if it overflows (only if not footer, footer is already anchored)
+    const lastItem = items[items.length - 1];
+    if (lastItem && lastItem.id !== "footer") {
+      const lr = resolved[lastItem.id];
+      if (lr && lr.y + lr.h > H - 8) {
+        lr.y = Math.max(8, H - 8 - lr.h);
       }
     }
 
@@ -528,9 +535,9 @@ export function PreviewPanel({ settings, shouldRender }: PreviewPanelProps) {
         const wordMetrics: { w: number; entry: WordEntry }[] = [];
         for (let j = 0; j < line.length; j++) {
           const ws = cs.wordStyles[line[j].globalIdx];
-          const isBold = ws?.bold;
-          const wordWeight = isBold ? 700 : fSetting.weight;
-          ctx.font = `${weightStr(wordWeight)} ${fSetting.size}px ${CANVAS_FONT}`;
+          const wordWeight = ws?.weight ?? (ws?.bold ? 700 : fSetting.weight);
+          const wordSize = ws?.fontSize ?? fSetting.size;
+          ctx.font = `${weightStr(wordWeight)} ${wordSize}px ${CANVAS_FONT}`;
           const suffix = j < line.length - 1 ? " " : "";
           const wm = ctx.measureText(line[j].word + suffix).width;
           wordMetrics.push({ w: wm, entry: line[j] });
@@ -542,12 +549,18 @@ export function PreviewPanel({ settings, shouldRender }: PreviewPanelProps) {
         for (let j = 0; j < wordMetrics.length; j++) {
           const { w: ww, entry } = wordMetrics[j];
           const ws = cs.wordStyles[entry.globalIdx];
-          const isBold = ws?.bold;
-          const wordWeight = isBold ? 700 : fSetting.weight;
-          ctx.font = `${weightStr(wordWeight)} ${fSetting.size}px ${CANVAS_FONT}`;
+          const wordWeight = ws?.weight ?? (ws?.bold ? 700 : fSetting.weight);
+          const wordSize = ws?.fontSize ?? fSetting.size;
+          ctx.font = `${weightStr(wordWeight)} ${wordSize}px ${CANVAS_FONT}`;
 
-          // Determine color
-          if (ws?.color) {
+          // Determine color (per-word brand gradient overrides solid color)
+          if (ws?.useGradient) {
+            const grad = ctx.createLinearGradient(wx, cy, wx + ww, cy);
+            grad.addColorStop(0, GRADIENT_STOPS[0]);
+            grad.addColorStop(0.5, GRADIENT_STOPS[1]);
+            grad.addColorStop(1, GRADIENT_STOPS[2]);
+            ctx.fillStyle = grad;
+          } else if (ws?.color) {
             ctx.fillStyle = ws.color;
           } else if (cs.useGradient) {
             const grad = ctx.createLinearGradient(wx, cy, wx + ww, cy);
@@ -575,11 +588,11 @@ export function PreviewPanel({ settings, shouldRender }: PreviewPanelProps) {
 
           // Strikethrough
           if (ws?.strikethrough) {
-            const stY = cy - fSetting.size * 0.3;
+            const stY = cy - wordSize * 0.3;
             const textOnlyW = ctx.measureText(entry.word).width;
             ctx.save();
             ctx.strokeStyle = ctx.fillStyle as string;
-            ctx.lineWidth = Math.max(2, fSetting.size * 0.05);
+            ctx.lineWidth = Math.max(2, wordSize * 0.05);
             ctx.beginPath();
             ctx.moveTo(wx, stY);
             ctx.lineTo(wx + textOnlyW, stY);
@@ -611,7 +624,7 @@ export function PreviewPanel({ settings, shouldRender }: PreviewPanelProps) {
         b: parseInt(h.substring(4, 6), 16),
       };
     }
-  }, [currentSize, pad, logoPos, logoScale, visualImage, content, useH, useSH, useF, shouldRender, fs, vSlot, tSlots, currentMode, tColors, exportTrigger]);
+  }, [currentSize, pad, logoPos, logoScale, slotGap, visualImage, content, useH, useSH, useF, shouldRender, fs, vSlot, tSlots, currentMode, tColors, exportTrigger]);
 
   const handleDownload = () => {
     const canvas = canvasRef.current;

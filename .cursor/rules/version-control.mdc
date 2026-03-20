@@ -10,3 +10,12 @@ alwaysApply: true
 - Prefer small, logical commits over one large commit.
 - Do not commit secrets, `.env` files, or build artifacts (they are in `.gitignore`).
 - When suggesting or describing changes, remind to run `git add` and `git commit` (and optionally `git status` / `git diff`) so the work is tracked.
+
+## Restoring previous versions
+
+- **List history:** `git log --oneline` — shows commits; copy the commit hash (e.g. `4b510d1`) to restore from.
+- **Restore one file to a past version:** `git checkout <commit-hash> -- path/to/file` (e.g. `git checkout 4b510d1 -- src/app/App.tsx`). Use `git restore --source=<commit> -- path/to/file` on newer Git.
+- **See what changed in a commit:** `git show <commit-hash>`.
+- **Temporarily go back to a past commit (detached HEAD):** `git checkout <commit-hash>`. To return to latest: `git checkout main`.
+- **Undo last commit but keep changes:** `git reset --soft HEAD~1`. To discard the changes too: `git reset --hard HEAD~1` (destructive).
+- **Create a new branch from a past commit:** `git checkout -b my-restore <commit-hash>` — lets you compare or merge old state without losing current work.

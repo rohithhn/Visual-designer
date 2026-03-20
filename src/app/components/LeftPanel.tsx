@@ -7,6 +7,8 @@ import JSZip from "jszip";
 
 // Local placeholder for theme thumbnails (figma:asset/* only resolves in Figma plugin runtime)
 import themePlaceholder from "@/assets/placeholder-theme.svg";
+import { getVisualSlotDimensions } from "@/app/utils/visualSlotLayout";
+import { buildVisualBrief, buildContentAndVisualBlock } from "@/app/utils/imagePromptBuilder";
 
 /* ── Types ── */
 interface GeneratedContent {
@@ -21,6 +23,9 @@ interface WordStyle {
   color?: string;
   bold?: boolean;
   strikethrough?: boolean;
+  fontSize?: number;
+  weight?: number;
+  useGradient?: boolean;
 }
 
 interface SlotColorSettings {
@@ -717,16 +722,17 @@ function DraggableBlogCard({
                       onChange={(v) => { const u = { ...fSettings, [field]: { ...fs2, size: v } }; setFS(u); updS({ fontSettings: u }); }} />
                     <div>
                       <span className="text-muted-foreground block mb-0.5" style={{ fontSize: "var(--text-2xs)" }}>Weight</span>
-                      <div className="grid grid-cols-3 gap-0.5">
+                      <select
+                        value={fs2.weight}
+                        disabled={!isEnabled}
+                        onChange={(e) => { const u = { ...fSettings, [field]: { ...fs2, weight: Number(e.target.value) } }; setFS(u); updS({ fontSettings: u }); }}
+                        className="w-full px-2 py-1 rounded border border-border bg-input-background text-foreground cursor-pointer disabled:opacity-50"
+                        style={{ fontSize: "var(--text-2xs)" }}
+                      >
                         {weightOpts.map((w) => (
-                          <button key={w.value}
-                            onClick={() => { const u = { ...fSettings, [field]: { ...fs2, weight: w.value } }; setFS(u); updS({ fontSettings: u }); }}
-                            className="py-0.5 rounded-[var(--radius-utility)] border cursor-pointer transition-all"
-                            style={{ fontSize: "var(--text-2xs)", fontWeight: w.value, background: fs2.weight === w.value ? "var(--primary)" : "var(--card)", color: fs2.weight === w.value ? "var(--primary-foreground)" : "var(--foreground)", borderColor: fs2.weight === w.value ? "var(--primary)" : "var(--border)" }}>
-                            {w.label}
-                          </button>
+                          <option key={w.value} value={w.value}>{w.label}</option>
                         ))}
-                      </div>
+                      </select>
                     </div>
                   </div>
                   <div className="mb-1">
@@ -756,7 +762,7 @@ function DraggableBlogCard({
                           return (
                             <span key={i} onClick={() => setSelWord(isSel ? null : { field, index: i })}
                               className="px-1 py-0.5 rounded cursor-pointer transition-all hover:bg-primary/10"
-                              style={{ fontSize: "var(--text-2xs)", fontWeight: ws?.bold ? 700 : 400, textDecoration: ws?.strikethrough ? "line-through" : "none", color: isSel ? "var(--primary-foreground)" : (ws?.color || "var(--foreground)"), background: isSel ? "var(--primary)" : "transparent", borderRadius: "var(--radius-utility)" }}>
+                              style={{ fontSize: ws?.fontSize ? `${ws.fontSize}px` : "var(--text-2xs)", fontWeight: ws?.weight ?? (ws?.bold ? 700 : 400), textDecoration: ws?.strikethrough ? "line-through" : "none", color: isSel ? "var(--primary-foreground)" : (ws?.useGradient ? "transparent" : (ws?.color || "var(--foreground)")), background: isSel ? "var(--primary)" : (ws?.useGradient && !isSel ? "linear-gradient(135deg, var(--gradient-start), var(--gradient-end))" : "transparent"), WebkitBackgroundClip: ws?.useGradient && !isSel ? "text" : undefined, WebkitTextFillColor: ws?.useGradient && !isSel ? "transparent" : undefined, backgroundClip: ws?.useGradient && !isSel ? "text" : undefined, borderRadius: "var(--radius-utility)" }}>
                               {word}
                             </span>
                           );
@@ -765,9 +771,12 @@ function DraggableBlogCard({
                       {selWord?.field === field && (() => {
                         const wi = selWord.index;
                         const ws = cs.wordStyles[wi] || {};
+                        const slotSize = fs2.size;
+                        const slotWeight = fs2.weight;
                         const updWord = (patch: Partial<WordStyle>) => {
                           const nw = { ...ws, ...patch };
-                          if (!nw.color && !nw.bold && !nw.strikethrough) {
+                          const isEmpty = !nw.color && !nw.bold && !nw.strikethrough && nw.fontSize == null && nw.weight == null && !nw.useGradient;
+                          if (isEmpty) {
                             const { [wi]: _, ...rest } = cs.wordStyles;
                             const u = { ...tCS, [field]: { ...cs, wordStyles: rest } }; setTCS(u); updS({ textColorSettings: u });
                           } else {
@@ -780,13 +789,42 @@ function DraggableBlogCard({
                               <span style={{ fontSize: "var(--text-2xs)", fontWeight: 600, color: "var(--primary)" }}>&ldquo;{words[wi]}&rdquo;</span>
                               <button onClick={() => setSelWord(null)} className="text-muted-foreground cursor-pointer bg-transparent border-none" style={{ fontSize: "var(--text-2xs)" }}>✕</button>
                             </div>
-                            <div className="flex gap-1.5">
-                              <button onClick={() => updWord({ bold: !ws.bold })}
-                                className="flex-1 py-0.5 rounded-[var(--radius-utility)] border-2 cursor-pointer"
-                                style={{ fontSize: "var(--text-2xs)", fontWeight: 700, background: ws.bold ? "var(--primary)" : "var(--card)", color: ws.bold ? "var(--primary-foreground)" : "var(--foreground)", borderColor: ws.bold ? "var(--primary)" : "var(--border)" }}>B</button>
-                              <button onClick={() => updWord({ strikethrough: !ws.strikethrough })}
-                                className="flex-1 py-0.5 rounded-[var(--radius-utility)] border-2 cursor-pointer"
-                                style={{ fontSize: "var(--text-2xs)", textDecoration: "line-through", background: ws.strikethrough ? "var(--primary)" : "var(--card)", color: ws.strikethrough ? "var(--primary-foreground)" : "var(--foreground)", borderColor: ws.strikethrough ? "var(--primary)" : "var(--border)" }}>S</button>
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <span className="text-muted-foreground" style={{ fontSize: "var(--text-2xs)", width: 36 }}>Color</span>
+                                {colorPresets.map((cp) => (
+                                  <button key={cp.value} type="button" title={cp.label} onClick={() => updWord({ color: ws.color === cp.value ? undefined : cp.value, useGradient: false })}
+                                    className="w-5 h-5 rounded-full border cursor-pointer flex-shrink-0"
+                                    style={{ background: cp.value, borderColor: ws.color === cp.value && !ws.useGradient ? "var(--primary)" : "var(--border)" }} />
+                                ))}
+                                <button type="button" onClick={() => updWord(ws.useGradient ? { useGradient: false } : { useGradient: true, color: undefined })}
+                                  className="ml-0.5 flex items-center gap-0.5 py-0.5 px-1 rounded-[var(--radius-utility)] border-2 cursor-pointer"
+                                  style={{ background: ws.useGradient ? "linear-gradient(135deg, var(--gradient-start), var(--gradient-end))" : "var(--card)", color: ws.useGradient ? "#FFF" : "var(--foreground)", borderColor: ws.useGradient ? "var(--primary)" : "var(--border)", fontSize: "var(--text-2xs)", fontWeight: 600 }}
+                                  title="Brand gradient (orange → pink)">
+                                  ✦ Grad
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-muted-foreground" style={{ fontSize: "var(--text-2xs)", width: 36 }}>Size</span>
+                                <input type="number" min={8} max={120} value={ws.fontSize ?? slotSize}
+                                  onChange={(e) => { const v = parseInt(e.target.value, 10); if (!Number.isNaN(v)) updWord({ fontSize: v === slotSize ? undefined : v }); }}
+                                  className="w-12 px-1 py-0.5 rounded border border-border bg-input-background text-foreground" style={{ fontSize: "var(--text-2xs)" }} />
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="text-muted-foreground" style={{ fontSize: "var(--text-2xs)", width: 36 }}>Weight</span>
+                                <select value={ws.weight ?? slotWeight} onChange={(e) => { const v = Number(e.target.value); updWord({ weight: v === slotWeight ? undefined : v }); }}
+                                  className="flex-1 min-w-0 px-1 py-0.5 rounded border border-border bg-input-background text-foreground cursor-pointer" style={{ fontSize: "var(--text-2xs)" }}>
+                                  {weightOpts.map((w) => <option key={w.value} value={w.value}>{w.label}</option>)}
+                                </select>
+                              </div>
+                              <div className="flex gap-1">
+                                <button onClick={() => updWord({ bold: !ws.bold })}
+                                  className="flex-1 py-0.5 rounded-[var(--radius-utility)] border-2 cursor-pointer"
+                                  style={{ fontSize: "var(--text-2xs)", fontWeight: 700, background: ws.bold ? "var(--primary)" : "var(--card)", color: ws.bold ? "var(--primary-foreground)" : "var(--foreground)", borderColor: ws.bold ? "var(--primary)" : "var(--border)" }}>B</button>
+                                <button onClick={() => updWord({ strikethrough: !ws.strikethrough })}
+                                  className="flex-1 py-0.5 rounded-[var(--radius-utility)] border-2 cursor-pointer"
+                                  style={{ fontSize: "var(--text-2xs)", textDecoration: "line-through", background: ws.strikethrough ? "var(--primary)" : "var(--card)", color: ws.strikethrough ? "var(--primary-foreground)" : "var(--foreground)", borderColor: ws.strikethrough ? "var(--primary)" : "var(--border)" }}>S</button>
+                              </div>
                             </div>
                           </div>
                         );
@@ -1063,10 +1101,6 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
     return `POST LAYOUT:\n- Canvas size: ${sizeLabel}\n- Logo placement: ${pos?.label ?? logoPosition} at ${logoScale}% scale\n- Edge padding: ${padding}px\n- Background: warm peach/coral Enkrypt AI branded gradient (already provided — do NOT recreate the bg)`;
   };
 
-  /* ── Visual slot size for image generation (so image fits slot without zoom) ── */
-  const effectiveVisualSlot = settingsFromProps?.visualSlot ?? visualSlot;
-  const visualSlotSizeCtx = `VISUAL SLOT: The image will be displayed in a slot of size ${Math.round(size.width * effectiveVisualSlot.widthPct / 100)}×${Math.round(size.height * effectiveVisualSlot.heightPct / 100)} pixels (${effectiveVisualSlot.widthPct}%×${effectiveVisualSlot.heightPct}% of ${size.width}×${size.height}). Generate the image for this exact aspect ratio so it fits the slot without zoom or crop.`;
-
   /* ── API: Generate text structure (sends template image via vision) ── */
   const handleGenerateStructure = async () => {
     if (!apiKey) { showError("Enter API key"); return; }
@@ -1155,10 +1189,26 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
   };
 
   /* ── API: Generate a single visual image for a specific theme ── */
-  const generateSingleVisual = async (content: GeneratedContent, themeId: string, variationIdx: number, sourceImage?: string | null, omitContentTextInImage?: boolean): Promise<string | null> => {
+  const generateSingleVisual = async (content: GeneratedContent, themeId: string, variationIdx: number, sourceImage?: string | null, omitContentTextInImage?: boolean, visualBrief?: string | null): Promise<string | null> => {
     const selectedTheme = getThemeById(themeId);
     const paletteStr = selectedTheme.palette.join(", ");
     const layoutCtx = buildLayoutContext();
+
+    // Compute actual visual slot dimensions from layout (heading/subheading/footer + gap); prompt AI to generate for that size; image can be scaled in slot if user changes font/gap later
+    const s = settingsFromProps;
+    const slotDims = getVisualSlotDimensions({
+      size,
+      padding: s?.padding ?? padding,
+      slotGap: s?.slotGap ?? 14,
+      content,
+      useHeading: s?.useHeading ?? useHeading,
+      useSubheading: s?.useSubheading ?? useSubheading,
+      useFooter: s?.useFooter ?? useFooter,
+      fontSettings: s?.fontSettings ?? fontSettings,
+      textSlots: s?.textSlots ?? textSlots,
+      visualSlot: s?.visualSlot ?? visualSlot,
+    });
+    const visualSlotSizeCtx = `VISUAL SLOT: The image will be displayed in a slot of size ${slotDims.width}×${slotDims.height} pixels (this is the remaining space after heading, subheading, and footer). Generate the image for this exact width×height so it fills the whole slot. The image may be scaled when displayed if the user changes font size or spacing.`;
 
     // Template image is NOT sent to the AI — style is described in the prompt text.
     // This prevents the AI from copying the template's content/text.
@@ -1181,16 +1231,16 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
     const isNoTemplate = selectedTheme.isNone;
 
     // Brand color instructions that apply to ALL generations (with or without template)
-    const brandColorRules = `\nBRAND COLOR GUIDANCE (use to keep visuals on-brand; adapt as needed for the composition):\n- Heading: brand gradient orange (#FF7404) to pink (#FF3BA2) or primary orange.\n- Subheading: near-black (#1A1A1A) or high-contrast for readability.\n- Footer: brand orange or gradient.\n- Icons & accents: gradient (#FF7404 → #FF3BA2). Danger/warning: red (#D92D20). Success/secure: green (#16B364).\n- Card/surface backgrounds: white (#FFFFFF) with subtle borders where it fits. Blend with theme palette if given.`;
+    const brandColorRules = `\nBRAND COLOR GUIDANCE (follow strictly):\n- Primary accents: brand gradient orange #FF7404 → pink #FF3BA2 for icons, highlights, and decorative elements.\n- RED COLOR — this is a targeted rule, not a generic guideline: The CONTENT & VISUAL DIRECTION section below contains a VISUAL BRIEF with a ⚑ RED COLOR INSTRUCTION and a RED DECISION field. Read those fields now. If RED DECISION says ACTIVE, apply red #D92D20 to ONLY the exact element(s) named — do not use red anywhere else. If RED DECISION says INACTIVE, do NOT use red anywhere in this image — not as a border, frame, accent, glow, or any form of emphasis. This rule overrides any default behavior.\n- Extended accents: electric teal #06B6D4 or violet #7C3AED may be used as secondary accents when specified in the brief's PALETTE field.\n- Success/protected/secure: green #16B364 only for explicitly positive/secure/approved states.\n- Backgrounds: follow the PALETTE field in the brief. Dark backgrounds (#0A0F1E, #0D0F14) are valid and preferred for security/threat content. On dark backgrounds, use cool white #F0F4FF for labels and annotations.`;
 
     const templateCtx = isNoTemplate
       ? `\nYou have full creative freedom for the layout and style. Create a clean, modern, professional social media visual.\n${selectedTheme.visualPrompt}`
       : `\nTHEME REFERENCE (color palette and visual tone ONLY — do NOT copy the template's layout, structure, or content):\nTheme name: "${selectedTheme.label}"\nColor palette: ${paletteStr}\nTone/mood: ${selectedTheme.promptContext}\n\n*** CRITICAL: The template is ONLY a color/style/mood reference. Do NOT replicate the template's layout structure, card arrangement, grid, icons, diagrams, flowcharts, or any visual composition from the template. Create your OWN original layout that best presents the user's content. Use the template's colors and visual tone to style your original layout. ***`;
 
-    const contentContext = `Topic/theme of the visual: Heading "${content.heading}", subheading "${content.subheading}", footer "${content.footer}".`;
+    const contentAndVisualBlock = buildContentAndVisualBlock(content, visualBrief ?? null, !!omitContentTextInImage);
     const imgPrompt = omitContentTextInImage
-      ? `You are an expert graphic designer. Generate a supporting visual (illustration, diagram, or graphic) that will be composed with text displayed separately by the app.\n\n${templateCtx}\n${brandColorRules}\n\n${contentContext}\n\n*** DO NOT render the heading, subheading, or footer as text in the image. *** They are shown by the app elsewhere. Your image can include any other text—labels, captions, bullet points, annotations, stats, callouts—and any visuals (icons, illustrations, diagrams, charts). Do not limit the amount or type of text; include whatever supports the topic. Only the three main content pieces (heading, subheading, footer) must be omitted from the image.\n\n${layoutCtx}\n${visualSlotSizeCtx}\n\nREQUIREMENTS:\n1. LIGHT BACKGROUND — Use a light background with subtle opacity (e.g. soft white/cream fill or very light gradient). The app already has a white/light canvas; the image should fit it. Do not use a fully transparent background.\n2. NO PADDING OR BORDER — Do not add any padding, border, or margin in brand colors (no orange, pink, peach, or gradient frame/border around the content). No colored strip or decorative edge. Content and background must go edge to edge with zero wasted space.\n3. NO LOGO — Do not draw any logo, brand mark, or "Enkrypt". Leave the ${logoPosition} area clear.\n4. Use the color palette as guidance: ${paletteStr}. Brand gradient (orange #FF7404 to pink #FF3BA2) for accents; red (#D92D20) for danger/warning; green (#16B364) for success.\n5. ASPECT RATIO: ${size.width === size.height ? "Square (1:1)" : "Landscape (16:9)"}.${sourceImageCtx}${variationHint}`
-      : `You are an expert graphic designer and visual storyteller. The user has already provided three pieces of content. Your job is to generate an image that brings this content to life — the image must prominently feature and be built around these three elements.\n\n${templateCtx}\n${brandColorRules}\n\n--- CONTENT TO FEATURE IN THE IMAGE (must appear as text in the image) ---\nHeading: "${content.heading}"\nSubheading: "${content.subheading}"\nFooter: "${content.footer}"\n---\n\nGenerate a visual that:\n- Renders the heading, subheading, and footer as clear, legible text in the image. Place them where they best support the composition (e.g. heading as main title, subheading as supporting line, footer as CTA or tagline).\n- Can include as much additional text as you want: bullet points, labels, stats, captions, annotations, list items, callouts — anything that supports the message. Do not limit text; if more text makes the visual stronger, add it.\n- Uses your own layout and composition. Apply the theme's colors and tone. Include icons, illustrations, diagrams, charts, or any visual elements that fit the topic.\n- Feels complete and polished — whatever style best serves "${content.heading}" (minimal or dense, simple or detailed).\n\n${layoutCtx}\n${visualSlotSizeCtx}\n\nREQUIREMENTS:\n1. LIGHT BACKGROUND — Use a light background with subtle opacity (e.g. soft white/cream fill or very light gradient). The app already has a white/light canvas; the image should fit it. Do not use a fully transparent background.\n2. NO PADDING OR BORDER — Do not add any padding, border, or margin in brand colors (no orange, pink, peach, or gradient frame/border around the content). No colored strip or decorative edge. Content and background must go edge to edge with zero wasted space.\n3. Include the three content pieces above as text in the image. You may use any typography, size, and placement that works. Add any other text that strengthens the visual.\n4. NO LOGO — Do not draw any logo, brand mark, or "Enkrypt". Leave the ${logoPosition} area clear.\n5. Use the color palette as guidance: ${paletteStr}. Brand gradient (orange #FF7404 to pink #FF3BA2) for accents; red (#D92D20) for danger/warning; green (#16B364) for success; near-black for body text where readable.\n6. ASPECT RATIO: ${size.width === size.height ? "Square (1:1)" : "Landscape (16:9)"}.\n7. No arbitrary limits on layout, amount of text, or style — do what best communicates the heading, subheading, and footer.${sourceImageCtx}${variationHint}`;
+      ? `You are an expert graphic designer. Generate a supporting visual (illustration, diagram, or graphic) that will be composed with text displayed separately by the app.\n\n${templateCtx}\n${brandColorRules}\n\n--- CONTENT & VISUAL DIRECTION ---\n${contentAndVisualBlock}\n---\n\n${layoutCtx}\n${visualSlotSizeCtx}\n\nREQUIREMENTS:\n*** CRITICAL — ONE BACKGROUND ONLY (no \"2 bg\"): *** Do NOT use two layers. FORBIDDEN: outer peach/orange/gradient fill with a white card or white panel on top. FORBIDDEN: colored background visible around the edges of a central white rectangle. FORBIDDEN: white card in the center with gradient around it. REQUIRED: one unified light background only (e.g. one light fill at 20–30% opacity for the whole image). Put all content (icons, list items, text) directly on that one background; no second card or panel behind the content. No white rectangle floating on a colored background. The app has a white/light canvas; do not use a fully transparent background.\n1. SINGLE BACKGROUND — One light fill (20–30% opacity) for the whole image only; no second layer, no white card on gradient.\n2. NO THICK BORDER OR FRAME — Do not add any thick border, frame, or outer margin in brand colors (no orange, pink, peach, or gradient band around the image or around inner containers). No thick colored strip, decorative edge, or "brand frame." Content must fill the slot edge to edge with zero wasted space. Inside cards/containers, keep inner padding minimal — do not create a wide empty "border" inside white boxes; let content use the space.\n3. CURVED BORDERS — Use rounded, curved corners for the overall visual and any main containers; no sharp rectangular edges.\n4. NO LOGO — Do not draw any logo, brand mark, or "Enkrypt". Leave the ${logoPosition} area clear.\n5. Use the color palette as guidance: ${paletteStr}. Brand gradient (orange #FF7404 to pink #FF3BA2) for accents; red (#D92D20) for danger/warning; green (#16B364) for success.\n6. ASPECT RATIO: ${size.width === size.height ? "Square (1:1)" : "Landscape (16:9)"}.${sourceImageCtx}${variationHint}`
+      : `You are an expert graphic designer and visual storyteller. The user has already provided three pieces of content. Your job is to generate an image that brings this content to life — the image must prominently feature and be built around these three elements.\n\n${templateCtx}\n${brandColorRules}\n\n--- CONTENT & VISUAL DIRECTION ---\n${contentAndVisualBlock}\n---\n\nGenerate a visual that:\n- Renders the heading, subheading, and footer as clear, legible text in the image. Place them where they best support the composition.\n- Can include as much additional text as you want: bullet points, labels, stats, captions, annotations, list items, callouts — anything that supports the message.\n- Uses your own layout and composition. Apply the theme's colors and tone. Include icons, illustrations, diagrams, charts, or any visual elements that fit the topic.\n- Feels complete and polished — whatever style best serves the message.\n\n${layoutCtx}\n${visualSlotSizeCtx}\n\nREQUIREMENTS:\n*** CRITICAL — ONE BACKGROUND ONLY (no \"2 bg\"): *** Do NOT use two layers. FORBIDDEN: outer peach/orange/gradient fill with a white card or white panel on top. FORBIDDEN: colored background visible around the edges of a central white rectangle. FORBIDDEN: white card in the center with gradient around it. REQUIRED: one unified light background only (e.g. one light fill at 20–30% opacity for the whole image). Put all content (icons, list items, text) directly on that one background; no second card or panel behind the content. No white rectangle floating on a colored background. The app has a white/light canvas; do not use a fully transparent background.\n1. SINGLE BACKGROUND — One light fill (20–30% opacity) for the whole image only; no second layer, no white card on gradient.\n2. NO THICK BORDER OR FRAME — Do not add any thick border, frame, or outer margin in brand colors (no orange, pink, peach, or gradient band around the image or around inner containers). No thick colored strip, decorative edge, or "brand frame." Content must fill the slot edge to edge with zero wasted space. Inside cards/containers, keep inner padding minimal — do not create a wide empty "border" inside white boxes; let content use the space.\n3. CURVED BORDERS — Use rounded, curved corners for the overall visual and any main containers; no sharp rectangular edges.\n4. Include the three content pieces above as text in the image. You may use any typography, size, and placement that works. Add any other text that strengthens the visual.\n5. NO LOGO — Do not draw any logo, brand mark, or "Enkrypt". Leave the ${logoPosition} area clear.\n6. Use the color palette as guidance: ${paletteStr}. Brand gradient (orange #FF7404 to pink #FF3BA2) for accents; red (#D92D20) for danger/warning; green (#16B364) for success; near-black for body text where readable.\n7. ASPECT RATIO: ${size.width === size.height ? "Square (1:1)" : "Landscape (16:9)"}.\n8. No arbitrary limits on layout, amount of text, or style — do what best communicates the heading, subheading, and footer.${sourceImageCtx}${variationHint}`;
 
     try {
       if (provider === "openai") {
@@ -1302,10 +1352,13 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
     const newVariations: string[] = [];
 
     try {
+      // Build a content-aware visual brief from pasted content + heading/subheading/footer for better image prompting
+      const visualBrief = await buildVisualBrief(rawContent, content, apiKey, provider);
+
       let idx = 0;
       for (const tid of themesToUse) {
         for (let v = 0; v < variationCount; v++) {
-          const dataUrl = await generateSingleVisual(content, tid, idx, contentUploadedImage, true);
+          const dataUrl = await generateSingleVisual(content, tid, idx, contentUploadedImage, true, visualBrief);
           if (dataUrl) newVariations.push(dataUrl);
           idx++;
         }
@@ -1562,17 +1615,22 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
 
 ${sourceDescription}
 
-Each section should represent a key point, concept, or takeaway that would work well as a standalone social media visual/infographic.
+Your job: split the content into a small number of DISTINCT sections. Each section will get exactly one generated visual, so each must be a different topic, theme, or narrative beat.
 
-Create between 3-8 sections depending on the content length and density. Each section needs:
-- heading: A bold, attention-grabbing title for that section (max 8 words)
-- subheading: Supporting explanation text (max 15 words)
-- footer: A CTA, stat, or memorable tagline (max 8 words)
+RULES:
+- Create 3 to 5 sections only. Prefer fewer, high-impact sections over many small ones. Short or thin content → 3 sections; long, dense content → up to 5. Never return more than 5 sections.
+- Be content-aware: identify the real structure of the post (e.g. intro, problem, solution, CTA; or topic 1, topic 2, topic 3). Do not split into tiny fragments or repeat the same idea.
+- Each section must be clearly different from the others so each visual will be unique.
+
+For each section provide:
+- heading: A bold, attention-grabbing title for that section only (max 8 words)
+- subheading: Supporting text specific to this section (max 15 words)
+- footer: A CTA, stat, or tagline for this section (max 8 words)
 
 BRAND STYLE: Clean, modern, professional Enkrypt AI branded visuals. Brand gradient (#FF7404 → #FF3BA2) for icons, red (#D92D20) for danger, green (#16B364) for success, near-black (#1A1A1A) for text.
 ${hasText ? `\nTEXT CONTENT:\n${blogContent}` : ""}${customInstr}
 
-Return ONLY valid JSON array — no markdown, no explanation:
+Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation:
 [
   { "heading": "...", "subheading": "...", "footer": "..." },
   ...
@@ -1628,7 +1686,9 @@ Return ONLY valid JSON array — no markdown, no explanation:
         : data.candidates[0].content.parts[0].text;
 
       content = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      const sections: { heading: string; subheading: string; footer: string }[] = JSON.parse(content);
+      let sections: { heading: string; subheading: string; footer: string }[] = JSON.parse(content);
+      // Blog mode: cap at 5 sections so we don't get too many variants; keep content-aware subset
+      if (sections.length > 5) sections = sections.slice(0, 5);
 
       const defaultThemeId = "none";
       const blogSecs: BlogSection[] = sections.map((s, i) => ({
@@ -1677,7 +1737,11 @@ Return ONLY valid JSON array — no markdown, no explanation:
           subheading: sec.subheading,
           footer: sec.footer,
         };
-        const imgUrl = await generateSingleVisual(contentForSection, sec.themeId, i, blogUploadedImage, true);
+        // Blog mode: prompt for this section only — use only this section's content so the image is content-aware and distinct
+        const sectionRawContext = [sec.heading, sec.subheading, sec.footer].filter(Boolean).join(" ");
+        const sectionBrief = await buildVisualBrief(sectionRawContext, contentForSection, apiKey, provider);
+        const visualBrief = sectionBrief + " This image is for ONE section of a multi-section blog. Illustrate ONLY this section's topic; do not combine with other sections. The visual must clearly match this section's concept (e.g. if the section is about scanning, show scan-related visuals; if about permissions, show permission/shield visuals).";
+        const imgUrl = await generateSingleVisual(contentForSection, sec.themeId, i, blogUploadedImage, true, visualBrief);
         updatedSections[i] = { ...updatedSections[i], image: imgUrl || undefined, status: imgUrl ? "done" : "error" };
       } catch {
         updatedSections[i] = { ...updatedSections[i], status: "error" };
@@ -1718,7 +1782,11 @@ Return ONLY valid JSON array — no markdown, no explanation:
 
     try {
       const contentForSection: GeneratedContent = { heading: sec.heading, subheading: sec.subheading, footer: sec.footer };
-      const imgUrl = await generateSingleVisual(contentForSection, sec.themeId, idx, blogUploadedImage, true);
+      // Blog mode: prompt for this section only — content-aware so the image matches this section's topic
+      const sectionRawContext = [sec.heading, sec.subheading, sec.footer].filter(Boolean).join(" ");
+      const sectionBrief = await buildVisualBrief(sectionRawContext, contentForSection, apiKey, provider);
+      const visualBrief = sectionBrief + " This image is for ONE section of a multi-section blog. Illustrate ONLY this section's topic; do not combine with other sections. The visual must clearly match this section's concept (e.g. if the section is about scanning, show scan-related visuals; if about permissions, show permission/shield visuals).";
+      const imgUrl = await generateSingleVisual(contentForSection, sec.themeId, idx, blogUploadedImage, true, visualBrief);
       updatedSections[idx] = { ...updatedSections[idx], image: imgUrl || undefined, status: imgUrl ? "done" : "error" };
     } catch {
       updatedSections[idx] = { ...updatedSections[idx], status: "error" };
