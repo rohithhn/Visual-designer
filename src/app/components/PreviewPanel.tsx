@@ -1,5 +1,7 @@
 import { useRef, useEffect, useState } from "react";
-import { Download } from "lucide-react";
+import { Download, ChevronLeft, ChevronRight, Crop, Pencil, Loader2 } from "lucide-react";
+import { CropModal } from "./CropModal";
+import type { PreviewToolbarApi } from "@/app/types/previewToolbar";
 import enkryptLogo from "@/assets/enkrypt-logo.png";
 import bg1x1 from "@/assets/bg-1x1.png";
 import bg16x9 from "@/assets/placeholder-theme.svg";
@@ -62,7 +64,14 @@ interface PreviewPanelProps {
     activeVariation?: number;
   } | null;
   shouldRender: number;
+  toolbar: PreviewToolbarApi | null;
 }
+
+const PT_INPUT =
+  "w-full px-3 py-2.5 border-2 border-border rounded-[var(--radius)] bg-input-background text-foreground transition-all focus:outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/15";
+
+const BTN_ICON =
+  "inline-flex items-center justify-center min-h-10 min-w-10 rounded-[var(--radius-button)] border-2 border-border bg-card text-foreground cursor-pointer transition-all hover:bg-muted hover:border-border active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:pointer-events-none disabled:opacity-40";
 
 function getBackgroundForSize(w: number, h: number): string {
   return w / h < 1.2 ? bg1x1 : bg16x9;
@@ -103,7 +112,7 @@ function measureWrappedHeight(
   return lines * lineHeight;
 }
 
-export function PreviewPanel({ settings, shouldRender }: PreviewPanelProps) {
+export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hasCanvas, setHasCanvas] = useState(false);
   const skipSlotOutlinesRef = useRef(false);
@@ -639,25 +648,197 @@ export function PreviewPanel({ settings, shouldRender }: PreviewPanelProps) {
     setExportTrigger((t) => t + 1);
   };
 
+  /* ← / → cycle variations when multiple (not while typing; disabled during blog slideshow) */
+  useEffect(() => {
+    if (!toolbar?.show || !toolbar.arrowHotkeysActive || toolbar.navCount <= 1) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const el = e.target as HTMLElement | null;
+      if (!el) return;
+      const tag = el.tagName;
+      if (tag === "TEXTAREA" || tag === "INPUT" || tag === "SELECT" || el.isContentEditable) return;
+      e.preventDefault();
+      if (e.key === "ArrowLeft") toolbar.goPrev();
+      else toolbar.goNext();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toolbar]);
+
+  const activeThumb = toolbar ? toolbar.navLabelIndex - 1 : 0;
+
   return (
-    <div className="bg-card p-6 flex flex-col gap-5" style={{ fontFamily: `'Inter', sans-serif` }}>
+    <div className="bg-card p-5 sm:p-6 flex flex-col gap-4 sm:gap-5" style={{ fontFamily: `'Inter', sans-serif` }}>
       <div
-        className="flex-1 bg-muted rounded-[var(--radius-card)] flex items-center justify-center p-8 border-2 border-dashed border-border"
+        className="flex-1 bg-muted/70 rounded-[var(--radius-card)] flex items-center justify-center p-4 sm:p-8 border border-dashed border-border/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
         style={{ minHeight: 500 }}
+        role="region"
+        aria-label="Live canvas preview"
       >
         <canvas
           ref={canvasRef}
-          className="max-w-full max-h-full rounded-[var(--radius-card)]"
-          style={{ boxShadow: "0 20px 50px rgba(0,0,0,0.15)" }}
+          className="max-w-full max-h-full rounded-[var(--radius-card)] ring-1 ring-black/[0.06] dark:ring-white/[0.08]"
+          style={{ boxShadow: "0 20px 50px rgba(0,0,0,0.12)" }}
         />
       </div>
+
+      {toolbar?.show && (
+        <div className="rounded-[var(--radius-card)] border border-border bg-card shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-border/80 bg-muted/25">
+            <div className="flex items-start gap-3">
+              <div className="w-1 h-9 bg-primary rounded-full shrink-0 mt-0.5" aria-hidden />
+              <div className="min-w-0 flex-1">
+                <h3 className="text-foreground m-0 leading-tight" style={{ fontWeight: 700, fontSize: "var(--text-sm)" }}>
+                  {toolbar.mode === "blog" ? "Blog visual" : "Generated output"}
+                </h3>
+                <p className="text-muted-foreground m-0 mt-1" style={{ fontSize: "var(--text-2xs)", lineHeight: 1.45 }}>
+                  Switch versions, crop, or describe edits—then download the composed PNG below.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 sm:p-5 space-y-4">
+            {toolbar.navCount > 1 && (
+              <div className="rounded-[var(--radius)] bg-muted/40 border border-border/80 p-3 sm:p-4 space-y-3">
+                <p className="text-muted-foreground m-0 uppercase tracking-wider" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.08em" }}>
+                  Versions
+                </p>
+                <div className="flex flex-col items-stretch sm:items-center gap-2">
+                  <div className="flex items-center justify-center gap-2 sm:gap-4">
+                    <button type="button" onClick={() => toolbar.goPrev()} className={BTN_ICON} aria-label="Previous image">
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <span
+                      className="text-foreground tabular-nums min-w-[5.5rem] text-center px-3 py-1.5 rounded-[var(--radius-utility)] bg-background/80 border border-border/80"
+                      style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}
+                    >
+                      {toolbar.navLabelIndex} / {toolbar.navCount}
+                    </span>
+                    <button type="button" onClick={() => toolbar.goNext()} className={BTN_ICON} aria-label="Next image">
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <p className="text-muted-foreground m-0 flex flex-wrap items-center justify-center gap-1.5" style={{ fontSize: "var(--text-2xs)" }}>
+                    <span className="opacity-80">Keyboard</span>
+                    <kbd className="px-1.5 py-0.5 rounded border border-border bg-card font-mono text-[10px] leading-none shadow-sm">←</kbd>
+                    <kbd className="px-1.5 py-0.5 rounded border border-border bg-card font-mono text-[10px] leading-none shadow-sm">→</kbd>
+                    <span className="opacity-80">when not typing in a field</span>
+                  </p>
+                </div>
+
+                {toolbar.thumbnailSrcs.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto pb-1 pt-1 -mx-1 px-1 scroll-smooth [scrollbar-width:thin]">
+                    {toolbar.thumbnailSrcs.map((src, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => toolbar.goToIndex(i)}
+                        className="flex-shrink-0 rounded-[var(--radius-utility)] overflow-hidden cursor-pointer transition-all hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+                        style={{
+                          width: 48,
+                          height: 48,
+                          border: activeThumb === i ? "3px solid var(--primary)" : "2px solid var(--border)",
+                          boxShadow: activeThumb === i ? "0 0 0 2px var(--primary)" : "none",
+                          padding: 0,
+                          background: "var(--muted)",
+                        }}
+                        aria-label={`Image ${i + 1}`}
+                        aria-current={activeThumb === i ? "true" : undefined}
+                      >
+                        <img src={src} alt="" className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div>
+              <p className="text-muted-foreground m-0 mb-2 uppercase tracking-wider" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.08em" }}>
+                Adjust
+              </p>
+              <button
+                type="button"
+                onClick={() => toolbar.crop.open()}
+                disabled={!toolbar.crop.imageSrc}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[var(--radius-button)] border-2 border-border bg-card text-foreground cursor-pointer transition-all hover:bg-muted hover:border-border active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+                style={{ fontWeight: 600, fontSize: "var(--text-sm)" }}
+              >
+                <Crop className="w-4 h-4 shrink-0 text-primary" aria-hidden />
+                Crop image
+              </button>
+            </div>
+
+            <div className="rounded-[var(--radius)] border border-border/80 bg-muted/20 p-3 sm:p-4 space-y-2">
+              <label htmlFor="preview-edit-prompt" className="block text-foreground cursor-pointer" style={{ fontWeight: 700, fontSize: "var(--text-sm)" }}>
+                Edit with prompt
+              </label>
+              {toolbar.edit.sectionHint ? (
+                <p className="text-muted-foreground m-0" style={{ fontSize: "var(--text-2xs)", lineHeight: 1.45 }}>
+                  {toolbar.edit.sectionHint}
+                </p>
+              ) : null}
+              <p className="text-muted-foreground m-0" style={{ fontSize: "var(--text-sm)", lineHeight: 1.45 }}>
+                Describe changes to the {toolbar.navCount > 1 ? "selected" : "generated"} image.
+              </p>
+              <textarea
+                id="preview-edit-prompt"
+                className={PT_INPUT}
+                style={{ minHeight: 72, resize: "vertical", fontSize: "var(--text-sm)" }}
+                placeholder="e.g. 'Make the icons larger', 'Add more spacing'..."
+                value={toolbar.edit.prompt}
+                onChange={(e) => toolbar.edit.setPrompt(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => toolbar.edit.apply()}
+                disabled={!toolbar.edit.prompt.trim() || toolbar.edit.loading}
+                className="w-full py-3 px-4 rounded-[var(--radius-button)] border-2 cursor-pointer transition-all flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99] disabled:active:scale-100"
+                style={{
+                  background: "transparent",
+                  color: "var(--primary)",
+                  borderColor: "var(--primary)",
+                  fontWeight: 700,
+                  fontSize: "var(--text-base)",
+                }}
+              >
+                {toolbar.edit.loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+                    <span>Editing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Pencil className="w-4 h-4" aria-hidden />
+                    Apply edit
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toolbar?.crop.isOpen && toolbar.crop.imageSrc && (
+        <CropModal
+          imageSrc={toolbar.crop.imageSrc}
+          originalSrc={toolbar.crop.originalSrc}
+          onApply={toolbar.crop.onApply}
+          onResetToOriginal={toolbar.crop.onResetOriginal}
+          onClose={toolbar.crop.close}
+        />
+      )}
+
       {hasCanvas && (
         <button
+          type="button"
           onClick={handleDownload}
-          className="w-full py-3 px-6 rounded-[var(--radius-button)] border-2 border-primary bg-card text-primary cursor-pointer transition-all hover:bg-primary/5 flex items-center justify-center gap-2"
+          className="w-full py-3.5 px-6 rounded-[var(--radius-button)] border-2 border-primary bg-primary text-primary-foreground cursor-pointer transition-all hover:opacity-[0.96] active:scale-[0.99] shadow-sm flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
           style={{ fontWeight: 700, fontSize: "var(--text-base)" }}
         >
-          <Download className="w-4 h-4" /> Download PNG
+          <Download className="w-4 h-4 shrink-0" aria-hidden />
+          Download PNG
         </button>
       )}
     </div>

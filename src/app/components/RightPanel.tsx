@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 
 /* ── Types (aligned with App Settings) ── */
 interface TextSlotPos {
@@ -105,7 +106,7 @@ function CollapsibleBlock({
 }) {
   return (
     <details defaultOpen={defaultOpen} className="group rounded-[var(--radius)] border border-border/90 bg-muted/20 overflow-hidden">
-      <summary className="cursor-pointer list-none flex items-start justify-between gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors [&::-webkit-details-marker]:hidden">
+      <summary className="cursor-pointer list-none flex items-start justify-between gap-2 px-3 py-2.5 hover:bg-muted/50 transition-colors rounded-[var(--radius)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-card [&::-webkit-details-marker]:hidden">
         <div className="min-w-0 flex-1">
           <span className="text-foreground block" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
             {title}
@@ -116,13 +117,10 @@ function CollapsibleBlock({
             </span>
           ) : null}
         </div>
-        <span
-          className="text-muted-foreground shrink-0 mt-0.5 transition-transform group-open:rotate-180"
-          style={{ fontSize: "10px" }}
+        <ChevronDown
+          className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5 transition-transform group-open:rotate-180"
           aria-hidden
-        >
-          ▼
-        </span>
+        />
       </summary>
       <div className="px-3 pb-3 pt-0 border-t border-border/60 space-y-3">{children}</div>
     </details>

@@ -8,6 +8,7 @@ import { Header } from "./components/Header";
 import { LeftPanel } from "./components/LeftPanel";
 import { PreviewPanel } from "./components/PreviewPanel";
 import { RightPanel } from "./components/RightPanel";
+import type { PreviewToolbarApi } from "./types/previewToolbar";
 
 /* ── Error Boundary ── */
 interface EBState {
@@ -204,6 +205,7 @@ export default function App() {
     activeVariation: 0,
   });
   const [renderCount, setRenderCount] = useState(0);
+  const [previewToolbar, setPreviewToolbar] = useState<PreviewToolbarApi | null>(null);
 
   /* ── API state (lifted so Header settings panel & LeftPanel share it) ── */
   const [provider, setProvider] = useState<"openai" | "gemini">(
@@ -278,10 +280,12 @@ export default function App() {
               mode={mode}
               setMode={setMode}
               settings={settings}
+              registerPreviewToolbar={setPreviewToolbar}
             />
             <PreviewPanel
               settings={settings}
               shouldRender={renderCount}
+              toolbar={previewToolbar}
             />
             <RightPanel
               settings={settings}

@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Loader2, Upload, X, Maximize2, Sparkles, Zap, Settings2, Pencil, ChevronLeft, ChevronRight, ChevronDown, BookOpen, Download, Check, RotateCcw, Play, Pause, Archive, ImageIcon, GripVertical, Copy, Plus, Lock, Trash2, Save, Crop } from "lucide-react";
-import { CropModal } from "./CropModal";
+import { Loader2, Upload, X, Maximize2, Sparkles, Zap, Settings2, Pencil, ChevronLeft, ChevronRight, ChevronDown, BookOpen, Download, Check, RotateCcw, Play, Pause, Archive, ImageIcon, GripVertical, Copy, Plus, Lock, Trash2, Save } from "lucide-react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import JSZip from "jszip";
@@ -9,6 +8,7 @@ import JSZip from "jszip";
 import themePlaceholder from "@/assets/placeholder-theme.svg";
 import { getVisualSlotDimensions } from "@/app/utils/visualSlotLayout";
 import { buildVisualBrief, buildContentAndVisualBlock } from "@/app/utils/imagePromptBuilder";
+import type { PreviewToolbarApi } from "@/app/types/previewToolbar";
 
 /* ── Types ── */
 interface GeneratedContent {
@@ -90,6 +90,8 @@ interface LeftPanelProps {
   mode: "general" | "blog";
   setMode: (m: "general" | "blog") => void;
   settings: SettingsPayload | null;
+  /** Registers crop / edit / variation controls for the center Preview column */
+  registerPreviewToolbar?: (api: PreviewToolbarApi | null) => void;
 }
 
 /* ── Template passwords ── */
@@ -872,7 +874,7 @@ function DraggableBlogCard({
 }
 
 /* ───────────────────────────────────────────── */
-export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisual, hasContent, provider, apiKeyRaw, mode, setMode, settings: settingsFromProps }: LeftPanelProps) {
+export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisual, hasContent, provider, apiKeyRaw, mode, setMode, settings: settingsFromProps, registerPreviewToolbar }: LeftPanelProps) {
   /* ── Shared state ── */
   /** Sanitize API key: strip non-ASCII / invisible Unicode chars that break fetch headers */
   const apiKey = apiKeyRaw.replace(/[^\x20-\x7E]/g, "").trim();
@@ -1571,16 +1573,45 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
     }
   };
 
-  /* ── Crop: apply cropped image back ── */
-  const handleCropApply = (croppedDataUrl: string) => {
+  /* ── Crop: apply cropped image back (general + blog section image) ── */
+  const handleCropApply = useCallback((croppedDataUrl: string) => {
+    const currentImg = variations[activeVariation];
     const newVariations = [...variations];
     newVariations[activeVariation] = croppedDataUrl;
     setVariations(newVariations);
     setVisualImage(croppedDataUrl);
     updateSettings({ visualImage: croppedDataUrl, variations: newVariations });
+    if (mode === "blog" && currentImg) {
+      const secIdx = blogSections.findIndex(s => s.image === currentImg);
+      if (secIdx >= 0) {
+        const updated = [...blogSections];
+        updated[secIdx] = { ...updated[secIdx], image: croppedDataUrl };
+        setBlogSections(updated);
+      }
+    }
     onGenerateVisual();
     setShowCropModal(false);
-  };
+  }, [variations, activeVariation, mode, blogSections, updateSettings, onGenerateVisual]);
+
+  const handleCropResetOriginal = useCallback(() => {
+    const orig = originalVariations[activeVariation];
+    if (!orig) return;
+    const currentImg = variations[activeVariation];
+    const newVariations = [...variations];
+    newVariations[activeVariation] = orig;
+    setVariations(newVariations);
+    setVisualImage(orig);
+    updateSettings({ visualImage: orig, variations: newVariations });
+    if (mode === "blog" && currentImg) {
+      const secIdx = blogSections.findIndex(s => s.image === currentImg);
+      if (secIdx >= 0) {
+        const updated = [...blogSections];
+        updated[secIdx] = { ...updated[secIdx], image: orig };
+        setBlogSections(updated);
+      }
+    }
+    onGenerateVisual();
+  }, [originalVariations, activeVariation, variations, mode, blogSections, updateSettings, onGenerateVisual]);
 
   /* ── General mode: one-click generate (advanced only; basic removed) ── */
   const handleBasicGenerate = async () => {
@@ -1807,7 +1838,7 @@ Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation
   };
 
   /* ── Blog mode: select a blog image for preview ── */
-  const handleBlogSelectImage = (idx: number) => {
+  const handleBlogSelectImage = useCallback((idx: number) => {
     const sec = blogSections[idx];
     if (!sec?.image) return;
     setActiveBlogImage(idx);
@@ -1817,10 +1848,47 @@ Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation
     onContentGenerated(c);
     const allImages = blogSections.filter(s => s.image).map(s => s.image!);
     const varIdx = allImages.indexOf(sec.image);
+    setVariations(allImages);
     setActiveVariation(varIdx >= 0 ? varIdx : 0);
     updateSettings({ visualImage: sec.image, content: c, variations: allImages, activeVariation: varIdx >= 0 ? varIdx : 0 });
     onGenerateVisual();
-  };
+  }, [blogSections, onContentGenerated, onGenerateVisual, updateSettings]);
+
+  /** Jump to variation index (general + blog); syncs blog section + content in blog mode */
+  const goVariationTo = useCallback((i: number) => {
+    if (variations.length === 0) return;
+    const idx = ((i % variations.length) + variations.length) % variations.length;
+    const img = variations[idx];
+    if (mode === "blog") {
+      const secIdx = blogSections.findIndex(s => s.image === img);
+      if (secIdx >= 0) {
+        const sec = blogSections[secIdx];
+        const c: GeneratedContent = { heading: sec.heading, subheading: sec.subheading, footer: sec.footer };
+        setActiveBlogImage(secIdx);
+        setVisualImage(img);
+        setGenerated(c);
+        onContentGenerated(c);
+        setActiveVariation(idx);
+        updateSettings({ visualImage: img, content: c, variations, activeVariation: idx });
+        onGenerateVisual();
+        return;
+      }
+    }
+    setActiveVariation(idx);
+    setVisualImage(img);
+    updateSettings({ visualImage: img, activeVariation: idx, variations });
+    onGenerateVisual();
+  }, [mode, variations, blogSections, onContentGenerated, onGenerateVisual, updateSettings]);
+
+  const goVariationPrev = useCallback(() => {
+    if (variations.length === 0) return;
+    goVariationTo(activeVariation - 1);
+  }, [variations.length, activeVariation, goVariationTo]);
+
+  const goVariationNext = useCallback(() => {
+    if (variations.length === 0) return;
+    goVariationTo(activeVariation + 1);
+  }, [variations.length, activeVariation, goVariationTo]);
 
   /* ── Blog mode: reorder sections via drag ── */
   const moveSection = useCallback((from: number, to: number) => {
@@ -1930,6 +1998,78 @@ Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation
   const selectedThemeObj = getSelectedTheme();
   const isProcessing = loading || visualLoading;
   const totalImages = variationCount * selectedThemes.length;
+  const blogHasDoneImages = blogSections.some(s => s.status === "done" && s.image);
+
+  /* ── Register center Preview toolbar (variations, crop, edit) ── */
+  useEffect(() => {
+    if (!registerPreviewToolbar) return;
+    const showGeneral = mode === "general" && variations.length > 0 && !isProcessing;
+    const showBlog = mode === "blog" && blogHasDoneImages && !blogImageLoading;
+    if (!showGeneral && !showBlog) {
+      registerPreviewToolbar(null);
+      return;
+    }
+
+    const img = variations[activeVariation] ?? visualImage;
+    const orig = originalVariations[activeVariation];
+    const api: PreviewToolbarApi = {
+      mode,
+      show: true,
+      arrowHotkeysActive: !blogCarouselOpen,
+      navCount: variations.length,
+      navLabelIndex: activeVariation + 1,
+      goPrev: goVariationPrev,
+      goNext: goVariationNext,
+      goToIndex: goVariationTo,
+      thumbnailSrcs: [...variations],
+      crop: {
+        isOpen: showCropModal,
+        open: () => setShowCropModal(true),
+        close: () => setShowCropModal(false),
+        imageSrc: img ?? null,
+        originalSrc: orig,
+        onApply: handleCropApply,
+        onResetOriginal: handleCropResetOriginal,
+      },
+      edit: {
+        prompt: mode === "blog" ? blogEditPrompt : editPrompt,
+        setPrompt: mode === "blog" ? setBlogEditPrompt : setEditPrompt,
+        apply: mode === "blog" ? handleBlogEditImage : handleEditImage,
+        loading: mode === "blog" ? blogEditLoading : editLoading,
+        sectionHint:
+          mode === "blog" && blogSections[activeBlogImage]?.image
+            ? `Section ${activeBlogImage + 1}: ${blogSections[activeBlogImage]?.heading ?? ""}`
+            : undefined,
+      },
+    };
+    registerPreviewToolbar(api);
+    return () => registerPreviewToolbar(null);
+  }, [
+    registerPreviewToolbar,
+    mode,
+    variations,
+    activeVariation,
+    visualImage,
+    originalVariations,
+    isProcessing,
+    blogHasDoneImages,
+    blogImageLoading,
+    showCropModal,
+    blogEditPrompt,
+    editPrompt,
+    blogEditLoading,
+    editLoading,
+    blogSections,
+    activeBlogImage,
+    blogCarouselOpen,
+    goVariationPrev,
+    goVariationNext,
+    goVariationTo,
+    handleCropApply,
+    handleCropResetOriginal,
+    handleBlogEditImage,
+    handleEditImage,
+  ]);
 
   /* ── Shared template grid ── */
   const renderTemplateGrid = () => (
@@ -2094,129 +2234,6 @@ Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation
     </>
   );
 
-  /* ── Shared variations gallery ── */
-  const renderVariationsGallery = () => {
-    if (variations.length === 0 || isProcessing) return null;
-    return (
-      <SectionCard className="mt-3">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-[3px] h-[18px] bg-primary rounded-sm" />
-          <span className="text-foreground" style={{ fontSize: "var(--text-base)", fontWeight: 700 }}>
-            {variations.length > 1 ? `Generated Variations (${variations.length})` : "Generated Visual"}
-          </span>
-        </div>
-
-        {variations.length > 1 ? (
-          <>
-            <div className="relative mb-3">
-              <img
-                src={variations[activeVariation]}
-                alt={`Variation ${activeVariation + 1}`}
-                className="w-full rounded-[var(--radius)] border-2 border-border object-contain"
-                style={{ maxHeight: 180 }}
-              />
-              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1 rounded-full" style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}>
-                <button
-                  onClick={() => { const idx = (activeVariation - 1 + variations.length) % variations.length; setActiveVariation(idx); setVisualImage(variations[idx]); updateSettings({ visualImage: variations[idx], activeVariation: idx }); onGenerateVisual(); }}
-                  className="text-white cursor-pointer hover:opacity-80 transition-opacity bg-transparent border-none p-0"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <span style={{ fontSize: "var(--text-sm)", color: "white", fontWeight: 600 }}>
-                  {activeVariation + 1} / {variations.length}
-                </span>
-                <button
-                  onClick={() => { const idx = (activeVariation + 1) % variations.length; setActiveVariation(idx); setVisualImage(variations[idx]); updateSettings({ visualImage: variations[idx], activeVariation: idx }); onGenerateVisual(); }}
-                  className="text-white cursor-pointer hover:opacity-80 transition-opacity bg-transparent border-none p-0"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            <div className="flex gap-1.5 mb-3 overflow-x-auto pb-1">
-              {variations.map((v, i) => (
-                <button
-                  key={i}
-                  onClick={() => { setActiveVariation(i); setVisualImage(v); updateSettings({ visualImage: v, activeVariation: i }); onGenerateVisual(); }}
-                  className="flex-shrink-0 rounded-[var(--radius-utility)] overflow-hidden cursor-pointer transition-all hover:opacity-90"
-                  style={{
-                    width: 48, height: 48,
-                    border: activeVariation === i ? "3px solid var(--primary)" : "2px solid var(--border)",
-                    boxShadow: activeVariation === i ? "0 0 0 2px var(--primary)" : "none",
-                    padding: 0, background: "var(--muted)",
-                  }}
-                >
-                  <img src={v} alt={`V${i + 1}`} className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
-          </>
-        ) : (
-          <img
-            src={variations[0]}
-            alt="Generated visual"
-            className="w-full rounded-[var(--radius)] border-2 border-border object-contain mb-3"
-            style={{ maxHeight: 180 }}
-          />
-        )}
-
-        {/* Crop button */}
-        <div className="flex gap-2 mb-3">
-          <button
-            onClick={() => setShowCropModal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-[var(--radius-button)] border-2 border-border bg-transparent text-foreground cursor-pointer transition-all hover:bg-muted"
-            style={{ fontWeight: 600, fontSize: "var(--text-sm)" }}
-          >
-            <Crop className="w-4 h-4" /> Crop
-          </button>
-        </div>
-
-        {/* Crop Modal */}
-        {showCropModal && (variations[activeVariation] || visualImage) && (
-          <CropModal
-            imageSrc={(variations[activeVariation] || visualImage)!}
-            originalSrc={originalVariations[activeVariation] || undefined}
-            onApply={handleCropApply}
-            onResetToOriginal={() => {
-              const orig = originalVariations[activeVariation];
-              if (orig) {
-                const newVariations = [...variations];
-                newVariations[activeVariation] = orig;
-                setVariations(newVariations);
-                setVisualImage(orig);
-                updateSettings({ visualImage: orig, variations: newVariations });
-                onGenerateVisual();
-              }
-            }}
-            onClose={() => setShowCropModal(false)}
-          />
-        )}
-
-        {/* Edit with prompt */}
-        <div className="border-t border-border pt-3">
-          <FieldLabel>Edit with Prompt</FieldLabel>
-          <Hint>Describe changes to the {variations.length > 1 ? "active" : "generated"} image.</Hint>
-          <textarea
-            className={inputClass}
-            style={{ minHeight: 64, resize: "vertical", fontSize: "var(--text-sm)" }}
-            placeholder="e.g. 'Make the icons larger', 'Add more spacing'..."
-            value={editPrompt}
-            onChange={(e) => setEditPrompt(e.target.value)}
-          />
-          <PrimaryButton
-            onClick={handleEditImage}
-            disabled={!editPrompt.trim()}
-            loading={editLoading}
-            loadingText="Editing..."
-            icon={<Pencil className="w-4 h-4" />}
-            variant="outline"
-          >
-            Apply Edit
-          </PrimaryButton>
-        </div>
-      </SectionCard>
-    );
-  };
 
   /* ──────────────── RENDER ──���───────────── */
   return (
@@ -2266,7 +2283,101 @@ Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation
       {/* ═══════════════════════ GENERAL MODE ═══════════════════════ */}
       {mode === "general" && (
         <>
-          <CollapsibleSection title="Templates" icon="🎨" badge={selectedThemes.length > 1 ? `${selectedThemes.length}` : undefined}>
+          {/* Generate — first (above content input) */}
+          <SectionCard className="mb-3">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-[3px] h-[18px] bg-primary rounded-sm" />
+              <span className="text-foreground" style={{ fontSize: "var(--text-base)", fontWeight: 700 }}>Generate</span>
+            </div>
+            <p className="text-muted-foreground m-0 mb-3" style={{ fontSize: "var(--text-sm)", lineHeight: 1.45 }}>
+              Run after adding content below (and optional templates / post size further down).
+            </p>
+            <PrimaryButton
+              onClick={handleBasicGenerate}
+              disabled={isProcessing}
+              loading={isProcessing}
+              loadingText={loading ? "Generating text..." : `Creating visual${totalImages > 1 ? "s" : ""}...`}
+              icon={<Sparkles className="w-5 h-5" />}
+            >
+              Generate {totalImages > 1 ? `${totalImages} Visuals` : "Complete Visual"}
+            </PrimaryButton>
+          </SectionCard>
+
+          {/* Content + source image */}
+          <SectionCard className="mb-3">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-[3px] h-[18px] bg-primary rounded-sm" />
+              <span className="text-foreground" style={{ fontSize: "var(--text-base)", fontWeight: 700 }}>Content & source image</span>
+            </div>
+            <p className="text-muted-foreground m-0 mb-3" style={{ fontSize: "var(--text-sm)", lineHeight: 1.45 }}>
+              Paste or type your source material, and optionally add an image for the model to read.
+            </p>
+            <FieldLabel>Text content</FieldLabel>
+            <textarea
+              className={inputClass}
+              style={{ minHeight: 100, resize: "vertical", fontSize: "var(--text-sm)" }}
+              placeholder={"Paste content, a topic, or bullet points...\n\nExample: 'Enkrypt AI Hooks generate audit logs automatically.'"}
+              value={rawContent}
+              onChange={(e) => setRawContent(e.target.value)}
+            />
+
+            {/* Content image upload */}
+            <div className="mt-3 pt-3 border-t border-border">
+              <div className="flex items-center gap-2 mb-2">
+                <ImageIcon className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-foreground" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>Source image <span className="text-muted-foreground" style={{ fontWeight: 400 }}>(optional)</span></span>
+              </div>
+              <Hint>Upload a screenshot, infographic, or slide — AI will extract its content and convert to the selected template.</Hint>
+              {contentUploadedImage ? (
+                <div className="relative mb-2">
+                  <img
+                    src={contentUploadedImage}
+                    alt="Uploaded source"
+                    className="w-full rounded-[var(--radius)] border-2 border-border object-contain"
+                    style={{ maxHeight: 140 }}
+                  />
+                  <button
+                    onClick={() => { setContentUploadedImage(null); if (contentImageInputRef.current) contentImageInputRef.current.value = ""; }}
+                    className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                  <div
+                    className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-[var(--radius-utility)]"
+                    style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)", fontSize: "var(--text-2xs)", color: "white", fontWeight: 600 }}
+                  >
+                    <Check className="w-2.5 h-2.5 inline mr-0.5" />Source ready
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => contentImageInputRef.current?.click()}
+                  className="w-full py-4 rounded-[var(--radius)] border-2 border-dashed border-border cursor-pointer transition-all hover:border-primary hover:bg-primary/5 flex items-center justify-center gap-2 bg-card mb-2"
+                >
+                  <Upload className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-muted-foreground" style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>Click to upload source image</span>
+                </button>
+              )}
+
+              {/* Custom instructions (shown when image is uploaded) */}
+              {contentUploadedImage && (
+                <div className="mt-2">
+                  <span className="text-foreground block mb-1" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
+                    Custom Instructions <span className="text-muted-foreground" style={{ fontWeight: 400 }}>(optional)</span>
+                  </span>
+                  <textarea
+                    className={inputClass}
+                    style={{ minHeight: 56, resize: "vertical", fontSize: "var(--text-sm)" }}
+                    placeholder={"e.g. Focus on the stats, rewrite in a technical tone, use bullet points as sections..."}
+                    value={contentCustomInstructions}
+                    onChange={(e) => setContentCustomInstructions(e.target.value)}
+                  />
+                </div>
+              )}
+            </div>
+          </SectionCard>
+
+          <CollapsibleSection title="Templates" icon="🎨" defaultOpen={false} badge={selectedThemes.length > 1 ? `${selectedThemes.length}` : undefined}>
             <Hint>Select one or more templates for generation.</Hint>
             {renderTemplateGrid()}
           </CollapsibleSection>
@@ -2332,76 +2443,6 @@ Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation
             </div>
           </CollapsibleSection>
 
-          {/* Content Input */}
-          <SectionCard className="mb-3">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-[3px] h-[18px] bg-primary rounded-sm" />
-              <span className="text-foreground" style={{ fontSize: "var(--text-base)", fontWeight: 700 }}>Content</span>
-            </div>
-            <textarea
-              className={inputClass}
-              style={{ minHeight: 100, resize: "vertical", fontSize: "var(--text-sm)" }}
-              placeholder={"Paste content, a topic, or bullet points...\n\nExample: 'Enkrypt AI Hooks generate audit logs automatically.'"}
-              value={rawContent}
-              onChange={(e) => setRawContent(e.target.value)}
-            />
-
-            {/* Content image upload */}
-            <div className="mt-3 pt-3 border-t border-border">
-              <div className="flex items-center gap-2 mb-2">
-                <ImageIcon className="w-3.5 h-3.5 text-muted-foreground" />
-                <span className="text-foreground" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>Source Image <span className="text-muted-foreground" style={{ fontWeight: 400 }}>(optional)</span></span>
-              </div>
-              <Hint>Upload a screenshot, infographic, or slide — AI will extract its content and convert to the selected template.</Hint>
-              {contentUploadedImage ? (
-                <div className="relative mb-2">
-                  <img
-                    src={contentUploadedImage}
-                    alt="Uploaded source"
-                    className="w-full rounded-[var(--radius)] border-2 border-border object-contain"
-                    style={{ maxHeight: 140 }}
-                  />
-                  <button
-                    onClick={() => { setContentUploadedImage(null); if (contentImageInputRef.current) contentImageInputRef.current.value = ""; }}
-                    className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                  <div
-                    className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded-[var(--radius-utility)]"
-                    style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)", fontSize: "var(--text-2xs)", color: "white", fontWeight: 600 }}
-                  >
-                    <Check className="w-2.5 h-2.5 inline mr-0.5" />Source ready
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => contentImageInputRef.current?.click()}
-                  className="w-full py-4 rounded-[var(--radius)] border-2 border-dashed border-border cursor-pointer transition-all hover:border-primary hover:bg-primary/5 flex items-center justify-center gap-2 bg-card mb-2"
-                >
-                  <Upload className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-muted-foreground" style={{ fontSize: "var(--text-sm)", fontWeight: 500 }}>Click to upload source image</span>
-                </button>
-              )}
-
-              {/* Custom instructions (shown when image is uploaded) */}
-              {contentUploadedImage && (
-                <div className="mt-2">
-                  <span className="text-foreground block mb-1" style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>
-                    Custom Instructions <span className="text-muted-foreground" style={{ fontWeight: 400 }}>(optional)</span>
-                  </span>
-                  <textarea
-                    className={inputClass}
-                    style={{ minHeight: 56, resize: "vertical", fontSize: "var(--text-sm)" }}
-                    placeholder={"e.g. Focus on the stats, rewrite in a technical tone, use bullet points as sections..."}
-                    value={contentCustomInstructions}
-                    onChange={(e) => setContentCustomInstructions(e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
-          </SectionCard>
-
           {/* Advanced settings are in the right panel */}
 
           {/* Post Size */}
@@ -2413,19 +2454,6 @@ Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation
               onChange={(id) => { const [w, h] = id.split("x").map(Number); const sz = { width: w, height: h }; setSize(sz); updateSettings({ size: sz }); }}
             />
           </SectionCard>
-
-          {/* Generate button */}
-          <PrimaryButton
-            onClick={handleBasicGenerate}
-            disabled={isProcessing}
-            loading={isProcessing}
-            loadingText={loading ? "Generating text..." : `Creating visual${totalImages > 1 ? "s" : ""}...`}
-            icon={<Sparkles className="w-5 h-5" />}
-          >
-            Generate {totalImages > 1 ? `${totalImages} Visuals` : "Complete Visual"}
-          </PrimaryButton>
-
-          {renderVariationsGallery()}
 
           {generated && !isProcessing && variations.length === 0 && (
             <div className="bg-accent/10 border border-accent rounded-[var(--radius-card)] p-3 mt-3 text-center">
@@ -2812,38 +2840,8 @@ Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation
                   </div>
 
                   <div className="mt-2 text-center" style={{ fontSize: "var(--text-sm)", color: "var(--muted-foreground)" }}>
-                    Click any image to preview on canvas, or use slideshow to browse.
+                    Click an image to show it in the preview. Use the preview column for crop, edit, arrows, and PNG download — or slideshow to browse.
                   </div>
-
-                  {/* Edit with prompt — blog mode */}
-                  {blogSections[activeBlogImage]?.image && (
-                    <div className="border-t border-border pt-3 mt-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="w-[3px] h-[18px] bg-primary rounded-sm" />
-                        <span className="text-foreground" style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}>Edit with Prompt</span>
-                      </div>
-                      <p className="text-muted-foreground mb-2" style={{ fontSize: "var(--text-2xs)" }}>
-                        Describe changes to Section {activeBlogImage + 1}: <span style={{ fontWeight: 600, color: "var(--foreground)" }}>{blogSections[activeBlogImage]?.heading}</span>
-                      </p>
-                      <textarea
-                        className={inputClass}
-                        style={{ minHeight: 64, resize: "vertical", fontSize: "var(--text-sm)" }}
-                        placeholder="e.g. 'Make the icons larger', 'Change heading color to blue', 'Add more spacing'..."
-                        value={blogEditPrompt}
-                        onChange={(e) => setBlogEditPrompt(e.target.value)}
-                      />
-                      <PrimaryButton
-                        onClick={handleBlogEditImage}
-                        disabled={!blogEditPrompt.trim()}
-                        loading={blogEditLoading}
-                        loadingText="Editing..."
-                        icon={<Pencil className="w-4 h-4" />}
-                        variant="outline"
-                      >
-                        Apply Edit
-                      </PrimaryButton>
-                    </div>
-                  )}
                 </SectionCard>
               )}
             </>
