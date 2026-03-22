@@ -8,7 +8,12 @@ import { Header } from "./components/Header";
 import { LeftPanel } from "./components/LeftPanel";
 import { PreviewPanel } from "./components/PreviewPanel";
 import { RightPanel } from "./components/RightPanel";
+import { ContentWriterPanel } from "./components/ContentWriterPanel";
+import { ResearcherPanel } from "./components/ResearcherPanel";
+import { TextToolsSplitLayout } from "./components/TextToolsSplitLayout";
+import { TextOutputPanel } from "./components/TextOutputPanel";
 import type { PreviewToolbarApi } from "./types/previewToolbar";
+import type { AppMode } from "./types/appMode";
 
 /* ── Error Boundary ── */
 interface EBState {
@@ -156,9 +161,9 @@ interface Settings {
 
 export default function App() {
   const [hasContent, setHasContent] = useState(false);
-  const [mode, setMode] = useState<"general" | "blog">(
-    "general",
-  );
+  const [mode, setMode] = useState<AppMode>("general");
+  const [writerOutput, setWriterOutput] = useState("");
+  const [researcherOutput, setResearcherOutput] = useState("");
   const [settings, setSettings] = useState<Settings | null>({
     theme: "hooks",
     selectedThemes: ["hooks"],
@@ -248,6 +253,15 @@ export default function App() {
     setRenderCount((c) => c + 1);
   }, []);
 
+  const handleSetMode = useCallback((m: AppMode) => {
+    setMode(m);
+    if (m === "general" || m === "blog") {
+      setSettings((prev) => (prev ? { ...prev, mode: m } : prev));
+    }
+  }, []);
+
+  const isCanvasMode = mode === "general" || mode === "blog";
+
   return (
     <ErrorBoundary>
       <div
@@ -255,7 +269,7 @@ export default function App() {
         style={{ fontFamily: "'Inter', sans-serif" }}
       >
         <div
-          className="max-w-[1800px] mx-auto bg-card rounded-[var(--radius-card)] overflow-hidden"
+          className="max-w-[1800px] mx-auto bg-card rounded-[var(--radius-card)] overflow-x-hidden overflow-y-visible"
           style={{ boxShadow: "var(--elevation-sm)" }}
         >
           <Header
@@ -264,35 +278,71 @@ export default function App() {
             apiKeyRaw={apiKeyRaw}
             setApiKeyRaw={setApiKeyRaw}
             mode={mode}
-            setMode={setMode}
+            setMode={handleSetMode}
           />
-          <div
-            className="grid grid-cols-1 xl:grid-cols-[480px_1fr_400px]"
-            style={{ minHeight: "calc(100vh - 120px)" }}
-          >
-            <LeftPanel
-              onContentGenerated={handleContentGenerated}
-              onSettingsChange={handleSettingsChange}
-              onGenerateVisual={handleGenerateVisual}
-              hasContent={hasContent}
-              provider={provider}
-              apiKeyRaw={apiKeyRaw}
-              mode={mode}
-              setMode={setMode}
-              settings={settings}
-              registerPreviewToolbar={setPreviewToolbar}
+          {isCanvasMode ? (
+            <div
+              className="grid grid-cols-1 xl:grid-cols-[480px_1fr_400px]"
+              style={{ minHeight: "calc(100vh - 120px)" }}
+            >
+              <LeftPanel
+                onContentGenerated={handleContentGenerated}
+                onSettingsChange={handleSettingsChange}
+                onGenerateVisual={handleGenerateVisual}
+                hasContent={hasContent}
+                provider={provider}
+                apiKeyRaw={apiKeyRaw}
+                mode={mode}
+                setMode={handleSetMode}
+                settings={settings}
+                registerPreviewToolbar={setPreviewToolbar}
+              />
+              <PreviewPanel
+                settings={settings}
+                shouldRender={renderCount}
+                toolbar={previewToolbar}
+              />
+              <RightPanel
+                settings={settings}
+                onSettingsChange={handleSettingsPatch}
+                onContentGenerated={handleContentGenerated}
+              />
+            </div>
+          ) : mode === "contentWriter" ? (
+            <TextToolsSplitLayout
+              sidebar={
+                <ContentWriterPanel
+                  provider={provider}
+                  apiKeyRaw={apiKeyRaw}
+                  setOutput={setWriterOutput}
+                />
+              }
+              main={
+                <TextOutputPanel
+                  title="Generated content"
+                  output={writerOutput}
+                  emptyHint="Set a topic or paste context, then Generate. Output appears here — copy or download as .md."
+                />
+              }
             />
-            <PreviewPanel
-              settings={settings}
-              shouldRender={renderCount}
-              toolbar={previewToolbar}
+          ) : mode === "researcher" ? (
+            <TextToolsSplitLayout
+              sidebar={
+                <ResearcherPanel
+                  provider={provider}
+                  apiKeyRaw={apiKeyRaw}
+                  setOutput={setResearcherOutput}
+                />
+              }
+              main={
+                <TextOutputPanel
+                  title="Opinion piece"
+                  output={researcherOutput}
+                  emptyHint="Fetch a URL (with Vercel / vercel dev + Vite proxy) or paste article text, then generate."
+                />
+              }
             />
-            <RightPanel
-              settings={settings}
-              onSettingsChange={handleSettingsPatch}
-              onContentGenerated={handleContentGenerated}
-            />
-          </div>
+          ) : null}
         </div>
       </div>
     </ErrorBoundary>

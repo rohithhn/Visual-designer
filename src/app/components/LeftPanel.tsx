@@ -9,6 +9,7 @@ import themePlaceholder from "@/assets/placeholder-theme.svg";
 import { getVisualSlotDimensions } from "@/app/utils/visualSlotLayout";
 import { buildVisualBrief, buildContentAndVisualBlock } from "@/app/utils/imagePromptBuilder";
 import type { PreviewToolbarApi } from "@/app/types/previewToolbar";
+import type { AppMode } from "@/app/types/appMode";
 
 /* ── Types ── */
 interface GeneratedContent {
@@ -88,7 +89,7 @@ interface LeftPanelProps {
   provider: "openai" | "gemini";
   apiKeyRaw: string;
   mode: "general" | "blog";
-  setMode: (m: "general" | "blog") => void;
+  setMode: (m: AppMode) => void;
   settings: SettingsPayload | null;
   /** Registers crop / edit / variation controls for the center Preview column */
   registerPreviewToolbar?: (api: PreviewToolbarApi | null) => void;

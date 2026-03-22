@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { Eye, EyeOff, Check, Sun, Moon, Sparkles, BookOpen } from "lucide-react";
+import { Eye, EyeOff, Check, Sun, Moon, Sparkles, BookOpen, PenLine, Newspaper } from "lucide-react";
+import type { AppMode } from "@/app/types/appMode";
 import svgPaths from "../../imports/svg-sxifsdxhhb";
 import imgAvatar from "@/assets/placeholder-theme.svg";
 import enkryptLogo from "@/assets/enkrypt-logo.png";
@@ -9,8 +10,8 @@ interface HeaderProps {
   setProvider: (p: "openai" | "gemini") => void;
   apiKeyRaw: string;
   setApiKeyRaw: (k: string) => void;
-  mode: "general" | "blog";
-  setMode: (m: "general" | "blog") => void;
+  mode: AppMode;
+  setMode: (m: AppMode) => void;
 }
 
 export function Header({ provider, setProvider, apiKeyRaw, setApiKeyRaw, mode, setMode }: HeaderProps) {
@@ -18,8 +19,6 @@ export function Header({ provider, setProvider, apiKeyRaw, setApiKeyRaw, mode, s
   const [showKey, setShowKey] = useState(false);
   const [saved, setSaved] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
-
-  const topTab: "general" | "blog" = mode === "blog" ? "blog" : "general";
 
   /* ── Dark mode ── */
   const [dark, setDark] = useState(() => {
@@ -65,14 +64,6 @@ export function Header({ provider, setProvider, apiKeyRaw, setApiKeyRaw, mode, s
 
   const apiConfigured = apiKeyRaw.replace(/[^\x20-\x7E]/g, "").trim().length > 0;
 
-  const handleTopTab = (tab: "general" | "blog") => {
-    if (tab === "blog") {
-      setMode("blog");
-    } else {
-      setMode("general");
-    }
-  };
-
   return (
     <header className="bg-card border-b border-border">
       {/* Main header row */}
@@ -86,38 +77,37 @@ export function Header({ provider, setProvider, apiKeyRaw, setApiKeyRaw, mode, s
           />
         </div>
 
-        {/* ── Center: General / Blog tabs ── */}
-        <nav className="flex items-center gap-[4px] bg-muted rounded-[var(--radius)] p-[4px]">
-          <button
-            onClick={() => handleTopTab("general")}
-            className="flex items-center gap-[6px] px-[16px] py-[6px] rounded-[var(--radius-utility)] cursor-pointer transition-all"
-            style={{
-              border: "none",
-              fontSize: "var(--text-sm)",
-              fontWeight: topTab === "general" ? 600 : "var(--font-weight-normal)" as any,
-              background: topTab === "general" ? "var(--card)" : "transparent",
-              color: topTab === "general" ? "var(--foreground)" : "var(--muted-foreground)",
-              boxShadow: topTab === "general" ? "var(--elevation-sm)" : "none",
-            }}
-          >
-            <Sparkles className="w-[14px] h-[14px]" />
-            General
-          </button>
-          <button
-            onClick={() => handleTopTab("blog")}
-            className="flex items-center gap-[6px] px-[16px] py-[6px] rounded-[var(--radius-utility)] cursor-pointer transition-all"
-            style={{
-              border: "none",
-              fontSize: "var(--text-sm)",
-              fontWeight: topTab === "blog" ? 600 : "var(--font-weight-normal)" as any,
-              background: topTab === "blog" ? "var(--card)" : "transparent",
-              color: topTab === "blog" ? "var(--foreground)" : "var(--muted-foreground)",
-              boxShadow: topTab === "blog" ? "var(--elevation-sm)" : "none",
-            }}
-          >
-            <BookOpen className="w-[14px] h-[14px]" />
-            Blog
-          </button>
+        {/* ── Center: mode tabs ── */}
+        <nav className="flex flex-wrap items-center justify-center gap-[4px] bg-muted rounded-[var(--radius)] p-[4px] max-w-[min(100%,720px)]">
+          {(
+            [
+              { id: "general" as const, label: "General", Icon: Sparkles },
+              { id: "blog" as const, label: "Blog", Icon: BookOpen },
+              { id: "contentWriter" as const, label: "Content writer", Icon: PenLine },
+              { id: "researcher" as const, label: "Researcher", Icon: Newspaper },
+            ] as const
+          ).map(({ id, label, Icon }) => {
+            const active = mode === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setMode(id)}
+                className="flex items-center gap-[6px] px-[12px] sm:px-[14px] py-[6px] rounded-[var(--radius-utility)] cursor-pointer transition-all"
+                style={{
+                  border: "none",
+                  fontSize: "var(--text-sm)",
+                  fontWeight: active ? 600 : ("var(--font-weight-normal)" as any),
+                  background: active ? "var(--card)" : "transparent",
+                  color: active ? "var(--foreground)" : "var(--muted-foreground)",
+                  boxShadow: active ? "var(--elevation-sm)" : "none",
+                }}
+              >
+                <Icon className="w-[14px] h-[14px] shrink-0" />
+                <span className="whitespace-nowrap">{label}</span>
+              </button>
+            );
+          })}
         </nav>
 
         {/* ── Right: Actions ── */}
