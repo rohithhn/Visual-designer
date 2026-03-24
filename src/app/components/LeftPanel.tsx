@@ -929,6 +929,7 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
   const [variationCount, setVariationCount] = useState(1);
   const [variations, setVariations] = useState<string[]>([]);
   const [activeVariation, setActiveVariation] = useState(0);
+  const activeVariationRef = useRef(0);
   const [editPrompt, setEditPrompt] = useState("");
   const [editLoading, setEditLoading] = useState(false);
   const [showCropModal, setShowCropModal] = useState(false);
@@ -1070,6 +1071,10 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
       variations, activeVariation, ...overrides,
     });
   }, [theme, selectedThemes, logoPosition, padding, logoScale, visualImage, size, generated, useHeading, useSubheading, useFooter, fontSettings, visualSlot, textSlots, mode, textColorSettings, variations, activeVariation, onSettingsChange, settingsFromProps]);
+
+  useEffect(() => {
+    activeVariationRef.current = activeVariation;
+  }, [activeVariation]);
 
   // Re-push settings when text field toggles change so preview updates immediately
   useEffect(() => { updateSettings({}); }, [useHeading, useSubheading, useFooter]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1391,18 +1396,23 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
             setVariations([...accumulated]);
             setOriginalVariations([...accumulated]);
             if (batchTotal > 1) setVisualBatch({ done: accumulated.length, total: batchTotal });
-            if (accumulated.length === 1) {
-              setVisualImage(dataUrl);
-              setActiveVariation(0);
-              updateSettings({
-                visualImage: dataUrl,
-                content,
-                variations: [...accumulated],
-                activeVariation: 0,
-              });
-            } else {
-              updateSettings({ variations: [...accumulated], content });
-            }
+
+            // Always merge explicit visualImage + activeVariation: later updates only passed
+            // { variations, content } and stale settingsFromProps could omit visualImage from
+            // the parent state that was set on the first image — canvas stayed blank until Versions click.
+            const av = Math.min(
+              Math.max(0, activeVariationRef.current),
+              accumulated.length - 1,
+            );
+            const imgForPreview = accumulated[av];
+            setVisualImage(imgForPreview);
+            if (av !== activeVariation) setActiveVariation(av);
+            updateSettings({
+              visualImage: imgForPreview,
+              content,
+              variations: [...accumulated],
+              activeVariation: av,
+            });
             onGenerateVisual();
           }
           idx++;
