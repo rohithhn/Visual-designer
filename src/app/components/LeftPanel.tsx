@@ -2346,8 +2346,35 @@ Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation
               <span className="text-foreground" style={{ fontSize: "var(--text-base)", fontWeight: 700 }}>Generate</span>
             </div>
             <p className="text-muted-foreground m-0 mb-3" style={{ fontSize: "var(--text-sm)", lineHeight: 1.45 }}>
-              Run after adding content below (and optional templates / post size further down).
+              Add content below, pick how many variations per template, then run. Templates and post size are further down.
             </p>
+            <div className="mb-4">
+              <FieldLabel>Variations per Template</FieldLabel>
+              <div className="grid grid-cols-4 gap-2">
+                {[1, 2, 3, 4].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setVariationCount(n)}
+                    className="py-2 rounded-[var(--radius)] border-2 cursor-pointer transition-all"
+                    style={{
+                      fontSize: "var(--text-sm)",
+                      fontWeight: 600,
+                      background: variationCount === n ? "var(--primary)" : "var(--card)",
+                      color: variationCount === n ? "var(--primary-foreground)" : "var(--foreground)",
+                      borderColor: variationCount === n ? "var(--primary)" : "var(--border)",
+                    }}
+                  >
+                    {n === 1 ? "1" : `${n}x`}
+                  </button>
+                ))}
+              </div>
+              {totalImages > 1 && (
+                <div className="mt-1.5 text-center" style={{ fontSize: "var(--text-sm)", color: "var(--muted-foreground)" }}>
+                  Total: {totalImages} image{totalImages > 1 ? "s" : ""}
+                </div>
+              )}
+            </div>
             <PrimaryButton
               onClick={handleBasicGenerate}
               disabled={isProcessing}
@@ -2436,39 +2463,6 @@ Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation
           <CollapsibleSection title="Templates" icon="🎨" defaultOpen={false} badge={selectedThemes.length > 1 ? `${selectedThemes.length}` : undefined}>
             <Hint>Select one or more templates for generation.</Hint>
             {renderTemplateGrid()}
-          </CollapsibleSection>
-
-          <CollapsibleSection title="Output Settings" icon="⚙️">
-            <div className="space-y-4">
-              {/* Variations */}
-              <div>
-                <FieldLabel>Variations per Template</FieldLabel>
-                <div className="grid grid-cols-4 gap-2">
-                  {[1, 2, 3, 4].map((n) => (
-                    <button
-                      key={n}
-                      onClick={() => setVariationCount(n)}
-                      className="py-2 rounded-[var(--radius)] border-2 cursor-pointer transition-all"
-                      style={{
-                        fontSize: "var(--text-sm)",
-                        fontWeight: 600,
-                        background: variationCount === n ? "var(--primary)" : "var(--card)",
-                        color: variationCount === n ? "var(--primary-foreground)" : "var(--foreground)",
-                        borderColor: variationCount === n ? "var(--primary)" : "var(--border)",
-                      }}
-                    >
-                      {n === 1 ? "1" : `${n}x`}
-                    </button>
-                  ))}
-                </div>
-                {totalImages > 1 && (
-                  <div className="mt-1.5 text-center" style={{ fontSize: "var(--text-sm)", color: "var(--muted-foreground)" }}>
-                    Total: {totalImages} image{totalImages > 1 ? "s" : ""}
-                  </div>
-                )}
-              </div>
-
-            </div>
           </CollapsibleSection>
 
           <CollapsibleSection title="Logo & Spacing" icon="📍" defaultOpen={false}>
