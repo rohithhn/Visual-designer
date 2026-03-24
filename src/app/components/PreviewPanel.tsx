@@ -792,11 +792,23 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
       )}
 
       <div
-        className="flex-1 bg-muted/70 rounded-[var(--radius-card)] flex items-center justify-center p-4 sm:p-8 border border-dashed border-border/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+        className="relative flex-1 bg-muted/70 rounded-[var(--radius-card)] flex items-center justify-center p-4 sm:p-8 border border-dashed border-border/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
         style={{ minHeight: 500 }}
         role="region"
         aria-label="Live canvas preview"
       >
+        {toolbar?.show && (
+          <button
+            type="button"
+            onClick={() => toolbar.crop.open()}
+            disabled={!toolbar.crop.imageSrc}
+            className={`${BTN_ICON} absolute z-10 top-3 left-3 sm:top-4 sm:left-4 bg-card/95 shadow-sm backdrop-blur-[2px]`}
+            aria-label="Crop image"
+            title="Crop image"
+          >
+            <Crop className="w-5 h-5 text-primary shrink-0" aria-hidden />
+          </button>
+        )}
         <canvas
           ref={canvasRef}
           className="max-w-full max-h-full rounded-[var(--radius-card)] ring-1 ring-black/[0.06] dark:ring-white/[0.08]"
@@ -825,22 +837,6 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
           </div>
 
           <div className="p-4 sm:p-5 space-y-4">
-            <div>
-              <p className="text-muted-foreground m-0 mb-2 uppercase tracking-wider" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.08em" }}>
-                Adjust
-              </p>
-              <button
-                type="button"
-                onClick={() => toolbar.crop.open()}
-                disabled={!toolbar.crop.imageSrc}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[var(--radius-button)] border-2 border-border bg-card text-foreground cursor-pointer transition-all hover:bg-muted hover:border-border active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
-                style={{ fontWeight: 600, fontSize: "var(--text-sm)" }}
-              >
-                <Crop className="w-4 h-4 shrink-0 text-primary" aria-hidden />
-                Crop image
-              </button>
-            </div>
-
             <div className="rounded-[var(--radius)] border border-border/80 bg-muted/20 p-3 sm:p-4 space-y-2">
               <label htmlFor="preview-edit-prompt" className="block text-foreground cursor-pointer" style={{ fontWeight: 700, fontSize: "var(--text-sm)" }}>
                 Edit with prompt
