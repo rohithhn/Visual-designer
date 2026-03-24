@@ -669,6 +669,61 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
 
   return (
     <div className="bg-card p-5 sm:p-6 flex flex-col gap-4 sm:gap-5" style={{ fontFamily: `'Inter', sans-serif` }}>
+      {toolbar?.show && toolbar.navCount > 1 && (
+        <div className="rounded-[var(--radius)] bg-muted/40 border border-border/80 p-3 sm:p-4 space-y-3 shrink-0">
+          <p className="text-muted-foreground m-0 uppercase tracking-wider" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.08em" }}>
+            Versions
+          </p>
+          <div className="flex flex-col items-stretch sm:items-center gap-2">
+            <div className="flex items-center justify-center gap-2 sm:gap-4">
+              <button type="button" onClick={() => toolbar.goPrev()} className={BTN_ICON} aria-label="Previous image">
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <span
+                className="text-foreground tabular-nums min-w-[5.5rem] text-center px-3 py-1.5 rounded-[var(--radius-utility)] bg-background/80 border border-border/80"
+                style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}
+              >
+                {toolbar.navLabelIndex} / {toolbar.navCount}
+              </span>
+              <button type="button" onClick={() => toolbar.goNext()} className={BTN_ICON} aria-label="Next image">
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-muted-foreground m-0 flex flex-wrap items-center justify-center gap-1.5" style={{ fontSize: "var(--text-2xs)" }}>
+              <span className="opacity-80">Keyboard</span>
+              <kbd className="px-1.5 py-0.5 rounded border border-border bg-card font-mono text-[10px] leading-none shadow-sm">←</kbd>
+              <kbd className="px-1.5 py-0.5 rounded border border-border bg-card font-mono text-[10px] leading-none shadow-sm">→</kbd>
+              <span className="opacity-80">when not typing in a field</span>
+            </p>
+          </div>
+
+          {toolbar.thumbnailSrcs.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-1 pt-1 -mx-1 px-1 scroll-smooth [scrollbar-width:thin]">
+              {toolbar.thumbnailSrcs.map((src, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => toolbar.goToIndex(i)}
+                  className="flex-shrink-0 rounded-[var(--radius-utility)] overflow-hidden cursor-pointer transition-all hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+                  style={{
+                    width: 48,
+                    height: 48,
+                    border: activeThumb === i ? "3px solid var(--primary)" : "2px solid var(--border)",
+                    boxShadow: activeThumb === i ? "0 0 0 2px var(--primary)" : "none",
+                    padding: 0,
+                    background: "var(--muted)",
+                  }}
+                  aria-label={`Image ${i + 1}`}
+                  aria-current={activeThumb === i ? "true" : undefined}
+                >
+                  <img src={src} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div
         className="flex-1 bg-muted/70 rounded-[var(--radius-card)] flex items-center justify-center p-4 sm:p-8 border border-dashed border-border/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
         style={{ minHeight: 500 }}
@@ -692,68 +747,13 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
                   {toolbar.mode === "blog" ? "Blog visual" : "Generated output"}
                 </h3>
                 <p className="text-muted-foreground m-0 mt-1" style={{ fontSize: "var(--text-2xs)", lineHeight: 1.45 }}>
-                  Switch versions, crop, or describe edits—then download the composed PNG below.
+                  Switch versions above, crop, or describe edits—then download the composed PNG below.
                 </p>
               </div>
             </div>
           </div>
 
           <div className="p-4 sm:p-5 space-y-4">
-            {toolbar.navCount > 1 && (
-              <div className="rounded-[var(--radius)] bg-muted/40 border border-border/80 p-3 sm:p-4 space-y-3">
-                <p className="text-muted-foreground m-0 uppercase tracking-wider" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.08em" }}>
-                  Versions
-                </p>
-                <div className="flex flex-col items-stretch sm:items-center gap-2">
-                  <div className="flex items-center justify-center gap-2 sm:gap-4">
-                    <button type="button" onClick={() => toolbar.goPrev()} className={BTN_ICON} aria-label="Previous image">
-                      <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <span
-                      className="text-foreground tabular-nums min-w-[5.5rem] text-center px-3 py-1.5 rounded-[var(--radius-utility)] bg-background/80 border border-border/80"
-                      style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}
-                    >
-                      {toolbar.navLabelIndex} / {toolbar.navCount}
-                    </span>
-                    <button type="button" onClick={() => toolbar.goNext()} className={BTN_ICON} aria-label="Next image">
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <p className="text-muted-foreground m-0 flex flex-wrap items-center justify-center gap-1.5" style={{ fontSize: "var(--text-2xs)" }}>
-                    <span className="opacity-80">Keyboard</span>
-                    <kbd className="px-1.5 py-0.5 rounded border border-border bg-card font-mono text-[10px] leading-none shadow-sm">←</kbd>
-                    <kbd className="px-1.5 py-0.5 rounded border border-border bg-card font-mono text-[10px] leading-none shadow-sm">→</kbd>
-                    <span className="opacity-80">when not typing in a field</span>
-                  </p>
-                </div>
-
-                {toolbar.thumbnailSrcs.length > 0 && (
-                  <div className="flex gap-2 overflow-x-auto pb-1 pt-1 -mx-1 px-1 scroll-smooth [scrollbar-width:thin]">
-                    {toolbar.thumbnailSrcs.map((src, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => toolbar.goToIndex(i)}
-                        className="flex-shrink-0 rounded-[var(--radius-utility)] overflow-hidden cursor-pointer transition-all hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
-                        style={{
-                          width: 48,
-                          height: 48,
-                          border: activeThumb === i ? "3px solid var(--primary)" : "2px solid var(--border)",
-                          boxShadow: activeThumb === i ? "0 0 0 2px var(--primary)" : "none",
-                          padding: 0,
-                          background: "var(--muted)",
-                        }}
-                        aria-label={`Image ${i + 1}`}
-                        aria-current={activeThumb === i ? "true" : undefined}
-                      >
-                        <img src={src} alt="" className="w-full h-full object-cover" />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
             <div>
               <p className="text-muted-foreground m-0 mb-2 uppercase tracking-wider" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.08em" }}>
                 Adjust
