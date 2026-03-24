@@ -157,6 +157,8 @@ interface Settings {
   };
   variations: string[];
   activeVariation: number;
+  /** Designer tab only: "1080x1080-trns" uses alternate 1:1 background in preview */
+  postSizeId?: string;
 }
 
 export default function App() {
@@ -255,8 +257,14 @@ export default function App() {
 
   const handleSetMode = useCallback((m: AppMode) => {
     setMode(m);
-    if (m === "general" || m === "blog") {
-      setSettings((prev) => (prev ? { ...prev, mode: m } : prev));
+    if (m === "blog") {
+      setSettings((prev) =>
+        prev ? { ...prev, mode: "blog", postSizeId: undefined } : prev,
+      );
+    } else if (m === "general") {
+      setSettings((prev) =>
+        prev ? { ...prev, mode: "general", postSizeId: undefined } : prev,
+      );
     } else if (m === "designer") {
       setSettings((prev) => (prev ? { ...prev, mode: "general" } : prev));
     }
@@ -295,6 +303,7 @@ export default function App() {
                 hasContent={hasContent}
                 provider={provider}
                 apiKeyRaw={apiKeyRaw}
+                headerMode={mode}
                 mode={mode === "blog" ? "blog" : "general"}
                 setMode={handleSetMode}
                 settings={settings}

@@ -4,6 +4,7 @@ import { CropModal } from "./CropModal";
 import type { PreviewToolbarApi } from "@/app/types/previewToolbar";
 import enkryptLogo from "@/assets/enkrypt-logo.png";
 import bg1x1 from "@/assets/bg-1x1.png";
+import bg1x1Trns from "@/assets/bg-1x1-trns.png";
 import bg16x9 from "@/assets/placeholder-theme.svg";
 
 interface FontSetting {
@@ -62,6 +63,7 @@ interface PreviewPanelProps {
     };
     variations?: string[];
     activeVariation?: number;
+    postSizeId?: string;
   } | null;
   shouldRender: number;
   toolbar: PreviewToolbarApi | null;
@@ -275,7 +277,8 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
       afterBg();
     };
-    bgImg.src = getBackgroundForSize(W, H);
+    bgImg.src =
+      s?.postSizeId === "1080x1080-trns" ? bg1x1Trns : getBackgroundForSize(W, H);
 
     function afterBg() {
       if (!skipSlotOutlinesRef.current) {
@@ -638,7 +641,7 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
         b: parseInt(h.substring(4, 6), 16),
       };
     }
-  }, [currentSize, pad, logoPos, logoScale, slotGap, visualImage, content, useH, useSH, useF, shouldRender, fs, vSlot, tSlots, currentMode, tColors, exportTrigger]);
+  }, [currentSize, pad, logoPos, logoScale, slotGap, visualImage, content, useH, useSH, useF, shouldRender, fs, vSlot, tSlots, currentMode, tColors, exportTrigger, s?.postSizeId]);
 
   const handleDownload = () => {
     const canvas = canvasRef.current;

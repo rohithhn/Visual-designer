@@ -6,6 +6,7 @@ import JSZip from "jszip";
 
 // Local placeholder for theme thumbnails (figma:asset/* only resolves in Figma plugin runtime)
 import themePlaceholder from "@/assets/placeholder-theme.svg";
+import bg1x1TrnsThumb from "@/assets/bg-1x1-trns.png";
 import { getVisualSlotDimensions } from "@/app/utils/visualSlotLayout";
 import { buildVisualBrief, buildContentAndVisualBlock } from "@/app/utils/imagePromptBuilder";
 import type { PreviewToolbarApi } from "@/app/types/previewToolbar";
@@ -73,6 +74,7 @@ interface SettingsPayload {
   textColorSettings: TextColorSettings;
   variations: string[];
   activeVariation: number;
+  postSizeId?: string;
 }
 
 interface BlogSection {
@@ -93,6 +95,8 @@ interface LeftPanelProps {
   hasContent: boolean;
   provider: "openai" | "gemini";
   apiKeyRaw: string;
+  /** Actual header tab (includes designer); `mode` is panel layout (general vs blog). */
+  headerMode: AppMode;
   mode: "general" | "blog";
   setMode: (m: AppMode) => void;
   settings: SettingsPayload | null;
@@ -220,6 +224,9 @@ const sizes = [
   { name: "16:9", width: 1920, height: 1080 },
 ];
 
+/** Designer tab only — second 1:1 uses custom preview background (postSizeId). */
+const DESIGNER_POST_SIZE_TRNS_ID = "1080x1080-trns";
+
 const positions = [
   { id: "top-left", label: "↖ Top Left" },
   { id: "top-center", label: "↑ Top Center" },
@@ -305,7 +312,7 @@ function ToggleGroup({
   onChange,
   columns = 2,
 }: {
-  options: { id: string; label: string; sublabel?: string }[];
+  options: { id: string; label: string; sublabel?: string; iconSrc?: string }[];
   value: string;
   onChange: (id: string) => void;
   columns?: number;
@@ -327,6 +334,13 @@ function ToggleGroup({
               borderColor: active ? "var(--primary)" : "var(--border)",
             }}
           >
+            {o.iconSrc ? (
+              <img
+                src={o.iconSrc}
+                alt=""
+                className="w-10 h-10 mx-auto mb-1.5 rounded-md object-contain bg-background/50"
+              />
+            ) : null}
             <div style={{ fontWeight: 600 }}>{o.label}</div>
             {o.sublabel && <div style={{ opacity: 0.8 }}>{o.sublabel}</div>}
           </button>
@@ -880,7 +894,7 @@ function DraggableBlogCard({
 }
 
 /* ───────────────────────────────────────────── */
-export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisual, hasContent, provider, apiKeyRaw, mode, setMode, settings: settingsFromProps, registerPreviewToolbar }: LeftPanelProps) {
+export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisual, hasContent, provider, apiKeyRaw, headerMode, mode, setMode, settings: settingsFromProps, registerPreviewToolbar }: LeftPanelProps) {
   /* ── Shared state ── */
   /** Sanitize API key: strip non-ASCII / invisible Unicode chars that break fetch headers */
   const apiKey = apiKeyRaw.replace(/[^\x20-\x7E]/g, "").trim();
@@ -2505,13 +2519,50 @@ Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation
 
           {/* Advanced settings are in the right panel */}
 
-          {/* Post Size */}
+          {/* Post Size — Designer tab adds "1:1 trns" (same pixels as 1:1, custom preview bg) */}
           <SectionCard className="mb-3">
             <FieldLabel>Post Size</FieldLabel>
             <ToggleGroup
-              options={sizes.map((s) => ({ id: `${s.width}x${s.height}`, label: s.name, sublabel: `${s.width}×${s.height}` }))}
-              value={`${size.width}x${size.height}`}
-              onChange={(id) => { const [w, h] = id.split("x").map(Number); const sz = { width: w, height: h }; setSize(sz); updateSettings({ size: sz }); }}
+              columns={headerMode === "designer" ? 3 : 2}
+              options={
+                headerMode === "designer"
+                  ? [
+                      { id: "1080x1080", label: "1:1", sublabel: "1080×1080" },
+                      {
+                        id: DESIGNER_POST_SIZE_TRNS_ID,
+                        label: "1:1 trns",
+                        sublabel: "1080×1080",
+                        iconSrc: bg1x1TrnsThumb,
+                      },
+                      { id: "1920x1080", label: "16:9", sublabel: "1920×1080" },
+                    ]
+                  : sizes.map((s) => ({
+                      id: `${s.width}x${s.height}`,
+                      label: s.name,
+                      sublabel: `${s.width}×${s.height}`,
+                    }))
+              }
+              value={
+                headerMode === "designer" &&
+                settingsFromProps?.postSizeId === DESIGNER_POST_SIZE_TRNS_ID
+                  ? DESIGNER_POST_SIZE_TRNS_ID
+                  : `${size.width}x${size.height}`
+              }
+              onChange={(id) => {
+                if (headerMode === "designer" && id === DESIGNER_POST_SIZE_TRNS_ID) {
+                  const sz = { width: 1080, height: 1080 };
+                  setSize(sz);
+                  updateSettings({ size: sz, postSizeId: DESIGNER_POST_SIZE_TRNS_ID });
+                  return;
+                }
+                const [w, h] = id.split("x").map(Number);
+                const sz = { width: w, height: h };
+                setSize(sz);
+                updateSettings({
+                  size: sz,
+                  ...(headerMode === "designer" ? { postSizeId: undefined } : {}),
+                });
+              }}
             />
           </SectionCard>
 
