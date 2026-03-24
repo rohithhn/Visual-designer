@@ -14,7 +14,11 @@
  */
 
 import { AVAILABLE_ICONS } from "./studioIconRenderer";
-import { ENKRYPT_GEMINI_CHAT_MODEL, ENKRYPT_OPENAI_FAST_MODEL } from "./llmText";
+import {
+  ENKRYPT_GEMINI_CHAT_MODEL,
+  ENKRYPT_OPENAI_FAST_MODEL,
+  openAiChatCompletionsExtras,
+} from "./llmText";
 
 // ── Shared types ─────────────────────────────────────────────────────────────
 
@@ -138,6 +142,7 @@ async function callLLM(
         ],
         max_tokens: maxTokens,
         temperature,
+        ...openAiChatCompletionsExtras(ENKRYPT_OPENAI_FAST_MODEL),
       }),
     });
     if (!res.ok) throw new Error(`OpenAI error: ${await res.text()}`);

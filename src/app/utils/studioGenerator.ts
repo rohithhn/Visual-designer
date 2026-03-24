@@ -1,7 +1,7 @@
 /**
  * studioGenerator — AI image generation for the Studio tab.
  *
- * generateImageInstruction()  — v1: GPT-4o-mini reads content and writes a
+ * generateImageInstruction()  — v1: fast OpenAI chat model reads content and writes a
  *                               concise creative image instruction automatically.
  *
  * generateStudioImage()       — calls gpt-image-1 / Gemini Imagen with a
@@ -17,6 +17,7 @@
 import {
   ENKRYPT_GEMINI_CHAT_MODEL,
   ENKRYPT_OPENAI_FAST_MODEL,
+  openAiChatCompletionsExtras,
 } from "./llmText";
 
 export interface StudioGeneratorOptions {
@@ -59,6 +60,7 @@ async function callText(
         messages: [{ role: "system", content: system }, { role: "user", content: user }],
         max_tokens: 150,
         temperature: 0.85,
+        ...openAiChatCompletionsExtras(ENKRYPT_OPENAI_FAST_MODEL),
       }),
     });
     if (!res.ok) throw new Error(await res.text());

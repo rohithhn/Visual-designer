@@ -4,7 +4,11 @@
  * content-aware, creatively directed output.
  */
 
-import { ENKRYPT_GEMINI_CHAT_MODEL, ENKRYPT_OPENAI_CHAT_MODEL } from "./llmText";
+import {
+  ENKRYPT_GEMINI_CHAT_MODEL,
+  ENKRYPT_OPENAI_CHAT_MODEL,
+  openAiChatCompletionsExtras,
+} from "./llmText";
 
 export interface GeneratedContent {
   heading: string;
@@ -130,6 +134,7 @@ EXTRACTED FOOTER: ${content.footer}
           messages: [{ role: "user", content: prompt }],
           temperature: 0.75,
           max_tokens: 700,
+          ...openAiChatCompletionsExtras(ENKRYPT_OPENAI_CHAT_MODEL),
         }),
       });
       if (!res.ok) return getFallbackVisualBrief(content);

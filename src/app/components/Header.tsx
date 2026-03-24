@@ -252,14 +252,14 @@ export function Header({ provider, setProvider, apiKeyRaw, setApiKeyRaw, mode, s
                     style={{ fontSize: "var(--text-xs)", lineHeight: 1.5 }}
                   >
                     <span className="text-foreground font-semibold block mb-1">Latest models</span>
-                    Requests use each provider&apos;s current defaults shipped in this app: OpenAI{" "}
-                    <span className="text-foreground font-mono">{ENKRYPT_OPENAI_CHAT_MODEL}</span> for
-                    main chat and layout work,{" "}
-                    <span className="text-foreground font-mono">{ENKRYPT_GEMINI_CHAT_MODEL}</span> for
-                    Gemini, and{" "}
-                    <span className="text-foreground font-mono">{ENKRYPT_OPENAI_FAST_MODEL}</span> for
-                    lighter OpenAI tasks (e.g. Studio text helpers). The header pill shows the chat
-                    model for your selected provider.
+                    OpenAI main chat uses the{" "}
+                    <span className="text-foreground font-mono">{ENKRYPT_OPENAI_CHAT_MODEL}</span>{" "}
+                    alias (OpenAI retargets it to their current ChatGPT-class snapshot). Lighter
+                    OpenAI calls use{" "}
+                    <span className="text-foreground font-mono">{ENKRYPT_OPENAI_FAST_MODEL}</span>.
+                    Gemini uses{" "}
+                    <span className="text-foreground font-mono">{ENKRYPT_GEMINI_CHAT_MODEL}</span>.
+                    The header pill shows the chat model for your selected provider.
                   </div>
 
                   <div>

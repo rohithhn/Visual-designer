@@ -10,11 +10,15 @@
  *   Full color freedom — any hex, linear/radial gradients allowed.
  *   fabric.loadSVGFromString() parses it into editable objects.
  *
- * Both are text-API calls (gpt-4o-mini) — cheap, fast, no image API needed.
+ * Both are text-API calls (fast OpenAI model from `llmText`) — cheap, no image API needed.
  */
 
 import type { GeneratedContent } from "./studioLayoutGenerator";
-import { ENKRYPT_GEMINI_CHAT_MODEL, ENKRYPT_OPENAI_FAST_MODEL } from "./llmText";
+import {
+  ENKRYPT_GEMINI_CHAT_MODEL,
+  ENKRYPT_OPENAI_FAST_MODEL,
+  openAiChatCompletionsExtras,
+} from "./llmText";
 
 // ── Visual slot constants ─────────────────────────────────────────────────────
 
@@ -75,6 +79,7 @@ async function callLLM(
         ],
         max_tokens: maxTokens,
         temperature,
+        ...openAiChatCompletionsExtras(ENKRYPT_OPENAI_FAST_MODEL),
       }),
     });
     if (!res.ok) throw new Error(`OpenAI error: ${await res.text()}`);

@@ -4,13 +4,28 @@
  */
 
 /**
- * Model IDs for this app — use each vendor’s current default chat models.
- * OpenAI: `gpt-4o` tracks the flagship 4o line; Gemini: `gemini-2.5-flash` (see Google AI docs).
+ * OpenAI: `gpt-5-chat-latest` is an **alias** OpenAI updates to the current ChatGPT-class chat
+ * snapshot — you don’t pin a dated model ID. For frontier “GPT-5.4” tasks outside this alias,
+ * use `gpt-5.4` in code instead (see OpenAI latest-model guide).
+ * @see https://developers.openai.com/api/docs/models/gpt-5-chat-latest
  */
-export const ENKRYPT_OPENAI_CHAT_MODEL = "gpt-4o";
-/** Cheaper OpenAI calls (e.g. Studio helpers) — still on the current 4o-mini line. */
-export const ENKRYPT_OPENAI_FAST_MODEL = "gpt-4o-mini";
+export const ENKRYPT_OPENAI_CHAT_MODEL = "gpt-5-chat-latest";
+
+/** High-volume / cheaper OpenAI text — GPT-5.4 mini line (still current generation). */
+export const ENKRYPT_OPENAI_FAST_MODEL = "gpt-5.4-mini";
+
 export const ENKRYPT_GEMINI_CHAT_MODEL = "gemini-2.5-flash";
+
+/**
+ * GPT-5.4 family on Chat Completions: `reasoning.effort: "none"` for low-latency, non-reasoning-style
+ * output (OpenAI GPT-5.4 guide). Omitted for `gpt-5-chat-latest` (alias may not need it).
+ */
+export function openAiChatCompletionsExtras(model: string): { reasoning?: { effort: "none" } } {
+  if (model.startsWith("gpt-5.4")) {
+    return { reasoning: { effort: "none" } };
+  }
+  return {};
+}
 
 /** Gemini `generateContent` URL for the configured chat model. */
 export function enkryptGeminiGenerateUrl(apiKey: string): string {
@@ -57,6 +72,7 @@ export async function completeText(
         ],
         temperature,
         max_tokens: openAiMax,
+        ...openAiChatCompletionsExtras(ENKRYPT_OPENAI_CHAT_MODEL),
         ...(options?.responseFormatJson ? { response_format: { type: "json_object" as const } } : {}),
       }),
     });

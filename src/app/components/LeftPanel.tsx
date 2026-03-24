@@ -10,7 +10,11 @@ import { getVisualSlotDimensions } from "@/app/utils/visualSlotLayout";
 import { buildVisualBrief, buildContentAndVisualBlock } from "@/app/utils/imagePromptBuilder";
 import type { PreviewToolbarApi } from "@/app/types/previewToolbar";
 import type { AppMode } from "@/app/types/appMode";
-import { ENKRYPT_GEMINI_CHAT_MODEL, ENKRYPT_OPENAI_CHAT_MODEL } from "@/app/utils/llmText";
+import {
+  ENKRYPT_GEMINI_CHAT_MODEL,
+  ENKRYPT_OPENAI_CHAT_MODEL,
+  openAiChatCompletionsExtras,
+} from "@/app/utils/llmText";
 
 /* ── Types ── */
 interface GeneratedContent {
@@ -1149,7 +1153,13 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
         response = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: "Bearer " + apiKey },
-          body: JSON.stringify({ model: ENKRYPT_OPENAI_CHAT_MODEL, messages, temperature: 0.7, max_tokens: 500 }),
+          body: JSON.stringify({
+            model: ENKRYPT_OPENAI_CHAT_MODEL,
+            messages,
+            temperature: 0.7,
+            max_tokens: 500,
+            ...openAiChatCompletionsExtras(ENKRYPT_OPENAI_CHAT_MODEL),
+          }),
         });
       } else {
         const parts: any[] = [];
@@ -1691,7 +1701,13 @@ Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation
         response = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: "Bearer " + apiKey },
-          body: JSON.stringify({ model: ENKRYPT_OPENAI_CHAT_MODEL, messages, temperature: 0.7, max_tokens: 2000 }),
+          body: JSON.stringify({
+            model: ENKRYPT_OPENAI_CHAT_MODEL,
+            messages,
+            temperature: 0.7,
+            max_tokens: 2000,
+            ...openAiChatCompletionsExtras(ENKRYPT_OPENAI_CHAT_MODEL),
+          }),
         });
       } else {
         const parts: any[] = [];
