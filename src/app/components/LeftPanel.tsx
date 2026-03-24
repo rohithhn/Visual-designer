@@ -890,6 +890,8 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
   const contentImageInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
   const [visualLoading, setVisualLoading] = useState(false);
+  /** Tracks multi-image general generate for preview progress (not blog). */
+  const [visualBatch, setVisualBatch] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState("");
   const [generated, setGenerated] = useState<GeneratedContent | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -1372,6 +1374,8 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
     onGenerateVisual();
 
     const themesToUse = selectedThemes.length > 0 ? selectedThemes : [theme];
+    const batchTotal = themesToUse.length * variationCount;
+    setVisualBatch(batchTotal > 1 ? { done: 0, total: batchTotal } : null);
     const accumulated: string[] = [];
 
     try {
@@ -1386,6 +1390,7 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
             accumulated.push(dataUrl);
             setVariations([...accumulated]);
             setOriginalVariations([...accumulated]);
+            if (batchTotal > 1) setVisualBatch({ done: accumulated.length, total: batchTotal });
             if (accumulated.length === 1) {
               setVisualImage(dataUrl);
               setActiveVariation(0);
@@ -1411,6 +1416,7 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
       showError(err.message);
     } finally {
       setVisualLoading(false);
+      setVisualBatch(null);
     }
   };
 
@@ -2021,7 +2027,9 @@ Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation
   const handleRemoveImage = () => {
     setVisualImage(null);
     setVariations([]);
+    setOriginalVariations([]);
     setActiveVariation(0);
+    setVisualBatch(null);
     updateSettings({ visualImage: null, variations: [], activeVariation: 0 });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -2040,7 +2048,8 @@ Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation
   /* ── Register center Preview toolbar (variations, crop, edit) ── */
   useEffect(() => {
     if (!registerPreviewToolbar) return;
-    const showGeneral = mode === "general" && variations.length > 0 && !isProcessing;
+    const showGeneral =
+      mode === "general" && !loading && (variations.length > 0 || visualLoading);
     const showBlog = mode === "blog" && blogHasDoneImages && !blogImageLoading;
     if (!showGeneral && !showBlog) {
       registerPreviewToolbar(null);
@@ -2049,10 +2058,17 @@ Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation
 
     const img = variations[activeVariation] ?? visualImage;
     const orig = originalVariations[activeVariation];
+    const showVersionNav = mode === "blog" || variationCount > 1;
+    const canVersionPrev = variations.length > 0 && activeVariation > 0;
+    const canVersionNext = variations.length > 0 && activeVariation < variations.length - 1;
     const api: PreviewToolbarApi = {
       mode,
       show: true,
-      arrowHotkeysActive: !blogCarouselOpen,
+      showVersionNav,
+      visualBatch: mode === "general" ? visualBatch : null,
+      canVersionPrev,
+      canVersionNext,
+      arrowHotkeysActive: !blogCarouselOpen && showVersionNav && variations.length > 1,
       navCount: variations.length,
       navLabelIndex: activeVariation + 1,
       goPrev: goVariationPrev,
@@ -2088,7 +2104,10 @@ Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation
     activeVariation,
     visualImage,
     originalVariations,
-    isProcessing,
+    loading,
+    visualLoading,
+    visualBatch,
+    variationCount,
     blogHasDoneImages,
     blogImageLoading,
     showCropModal,

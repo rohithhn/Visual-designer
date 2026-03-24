@@ -650,7 +650,7 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
 
   /* ← / → cycle variations when multiple (not while typing; disabled during blog slideshow) */
   useEffect(() => {
-    if (!toolbar?.show || !toolbar.arrowHotkeysActive || toolbar.navCount <= 1) return;
+    if (!toolbar?.show || !toolbar.arrowHotkeysActive || !toolbar.showVersionNav || toolbar.navCount <= 1) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       const el = e.target as HTMLElement | null;
@@ -667,25 +667,68 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
 
   const activeThumb = toolbar ? toolbar.navLabelIndex - 1 : 0;
 
+  const vb = toolbar?.visualBatch ?? null;
+  const batchIncomplete = Boolean(vb && vb.done < vb.total);
+  const showVersionsStrip =
+    toolbar?.show &&
+    toolbar.showVersionNav &&
+    (toolbar.navCount > 1 || (vb != null && vb.total > 1 && batchIncomplete));
+
+  const showMultiTemplateProgress =
+    toolbar?.show &&
+    toolbar.visualBatch &&
+    toolbar.visualBatch.total > 1 &&
+    batchIncomplete &&
+    !toolbar.showVersionNav;
+
   return (
     <div className="bg-card p-5 sm:p-6 flex flex-col gap-4 sm:gap-5" style={{ fontFamily: `'Inter', sans-serif` }}>
-      {toolbar?.show && toolbar.navCount > 1 && (
+      {showVersionsStrip && toolbar && (
         <div className="rounded-[var(--radius)] bg-muted/40 border border-border/80 p-3 sm:p-4 space-y-3 shrink-0">
           <p className="text-muted-foreground m-0 uppercase tracking-wider" style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.08em" }}>
             Versions
           </p>
+          {batchIncomplete && (
+            <div
+              className="flex items-center justify-center gap-2 text-muted-foreground rounded-[var(--radius-utility)] bg-background/50 border border-border/60 px-3 py-2"
+              style={{ fontSize: "var(--text-2xs)" }}
+              role="status"
+              aria-live="polite"
+            >
+              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 text-primary" aria-hidden />
+              <span>
+                {vb!.done === 0
+                  ? `Starting… (${vb!.total} images)`
+                  : `Generating image ${vb!.done + 1} of ${vb!.total}…`}
+              </span>
+            </div>
+          )}
           <div className="flex flex-col items-stretch sm:items-center gap-2">
             <div className="flex items-center justify-center gap-2 sm:gap-4">
-              <button type="button" onClick={() => toolbar.goPrev()} className={BTN_ICON} aria-label="Previous image">
+              <button
+                type="button"
+                onClick={() => toolbar.goPrev()}
+                disabled={!toolbar.canVersionPrev}
+                className={BTN_ICON}
+                aria-label="Previous image"
+              >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <span
                 className="text-foreground tabular-nums min-w-[5.5rem] text-center px-3 py-1.5 rounded-[var(--radius-utility)] bg-background/80 border border-border/80"
                 style={{ fontSize: "var(--text-sm)", fontWeight: 700 }}
               >
-                {toolbar.navLabelIndex} / {toolbar.navCount}
+                {batchIncomplete && vb
+                  ? `${toolbar.navCount === 0 ? vb.done : toolbar.navLabelIndex} / ${vb.total}`
+                  : `${toolbar.navLabelIndex} / ${toolbar.navCount}`}
               </span>
-              <button type="button" onClick={() => toolbar.goNext()} className={BTN_ICON} aria-label="Next image">
+              <button
+                type="button"
+                onClick={() => toolbar.goNext()}
+                disabled={!toolbar.canVersionNext}
+                className={BTN_ICON}
+                aria-label="Next image"
+              >
                 <ChevronRight className="w-5 h-5" />
               </button>
             </div>
@@ -697,7 +740,7 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
             </p>
           </div>
 
-          {toolbar.thumbnailSrcs.length > 0 && (
+          {(toolbar.thumbnailSrcs.length > 0 || (batchIncomplete && vb && vb.total > toolbar.thumbnailSrcs.length)) && (
             <div className="flex gap-2 overflow-x-auto pb-1 pt-1 -mx-1 px-1 scroll-smooth [scrollbar-width:thin]">
               {toolbar.thumbnailSrcs.map((src, i) => (
                 <button
@@ -719,8 +762,32 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
                   <img src={src} alt="" className="w-full h-full object-cover" />
                 </button>
               ))}
+              {batchIncomplete &&
+                vb &&
+                Array.from({ length: Math.max(0, vb.total - toolbar.thumbnailSrcs.length) }).map((_, i) => (
+                  <div
+                    key={`pending-${i}`}
+                    className="flex-shrink-0 rounded-[var(--radius-utility)] border-2 border-dashed border-border/70 bg-muted/50 animate-pulse"
+                    style={{ width: 48, height: 48 }}
+                    aria-hidden
+                  />
+                ))}
             </div>
           )}
+        </div>
+      )}
+
+      {showMultiTemplateProgress && toolbar?.visualBatch && (
+        <div
+          className="flex items-center gap-2 rounded-[var(--radius)] border border-border/80 bg-muted/30 px-3 py-2.5 text-muted-foreground shrink-0"
+          style={{ fontSize: "var(--text-sm)" }}
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="w-4 h-4 animate-spin shrink-0 text-primary" aria-hidden />
+          <span>
+            Generating templates… {toolbar.visualBatch.done} / {toolbar.visualBatch.total} ready
+          </span>
         </div>
       )}
 
@@ -747,7 +814,11 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
                   {toolbar.mode === "blog" ? "Blog visual" : "Generated output"}
                 </h3>
                 <p className="text-muted-foreground m-0 mt-1" style={{ fontSize: "var(--text-2xs)", lineHeight: 1.45 }}>
-                  Switch versions above, crop, or describe edits—then download the composed PNG below.
+                  {toolbar.mode === "blog"
+                    ? "Switch versions above, crop, or describe edits—then download the composed PNG below."
+                    : toolbar.showVersionNav
+                      ? "Versions above (2+ variations per template): switch outputs while more images generate. Then crop, edit, or download."
+                      : "Crop, edit, or download. Set Variations per Template to 2+ in Output to show the preview carousel and switch images while they generate."}
                 </p>
               </div>
             </div>
