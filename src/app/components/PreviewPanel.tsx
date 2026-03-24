@@ -64,6 +64,7 @@ interface PreviewPanelProps {
     variations?: string[];
     activeVariation?: number;
     postSizeId?: string;
+    visualImageBorderRadius?: number;
   } | null;
   shouldRender: number;
   toolbar: PreviewToolbarApi | null;
@@ -154,6 +155,7 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
     footer: { baseColor: "#FFFFFF", useGradient: true, wordStyles: {} },
   };
   const slotGap = s?.slotGap ?? DEFAULT_SLOT_GAP;
+  const visualImageBorderRadius = s?.visualImageBorderRadius ?? 12;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -355,17 +357,19 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
       const vsW = currentMode === "blog" ? (W - pad * 2) : W * (vSlot.widthPct / 100);
       const vsX = currentMode === "blog" ? pad : (W - vsW) / 2;
 
+      const vRad = Math.min(visualImageBorderRadius, vsW / 2, vr.h / 2);
+
       ctx.save();
       ctx.setLineDash([10, 7]);
       ctx.strokeStyle = "rgba(155,100,220,0.25)";
       ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.roundRect(vsX, vr.y, vsW, vr.h, 12);
+      ctx.roundRect(vsX, vr.y, vsW, vr.h, vRad);
       ctx.stroke();
 
       ctx.fillStyle = "rgba(155,100,220,0.03)";
       ctx.beginPath();
-      ctx.roundRect(vsX, vr.y, vsW, vr.h, 12);
+      ctx.roundRect(vsX, vr.y, vsW, vr.h, vRad);
       ctx.fill();
 
       // Visual label tag
@@ -452,9 +456,10 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
         }
         const drawX = vsX + (vsW - w) / 2;
         const drawY = vr.y + (vr.h - h) / 2;
+        const vRad = Math.min(visualImageBorderRadius, vsW / 2, vr.h / 2);
         ctx.save();
         ctx.beginPath();
-        ctx.roundRect(vsX, vr.y, vsW, vr.h, 12);
+        ctx.roundRect(vsX, vr.y, vsW, vr.h, vRad);
         ctx.clip();
         ctx.drawImage(img, drawX, drawY, w, h);
         ctx.restore();
@@ -641,7 +646,7 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
         b: parseInt(h.substring(4, 6), 16),
       };
     }
-  }, [currentSize, pad, logoPos, logoScale, slotGap, visualImage, content, useH, useSH, useF, shouldRender, fs, vSlot, tSlots, currentMode, tColors, exportTrigger, s?.postSizeId]);
+  }, [currentSize, pad, logoPos, logoScale, slotGap, visualImage, content, useH, useSH, useF, shouldRender, fs, vSlot, tSlots, currentMode, tColors, exportTrigger, s?.postSizeId, visualImageBorderRadius]);
 
   const handleDownload = () => {
     const canvas = canvasRef.current;

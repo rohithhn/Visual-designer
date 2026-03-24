@@ -38,6 +38,8 @@ export interface RightPanelSettings {
     footer: { size: number; weight: number };
   };
   visualSlot: { widthPct: number; heightPct: number; yPct: number };
+  /** Rounded corners on the generated visual (px at export resolution) */
+  visualImageBorderRadius?: number;
   textSlots: {
     heading: TextSlotPos;
     subheading: TextSlotPos;
@@ -189,6 +191,7 @@ export function RightPanel({ settings, onSettingsChange, onContentGenerated }: R
   const s = settings;
   const content = s.content ?? { heading: "", subheading: "", footer: "" };
   const visualSlot = s.visualSlot ?? { widthPct: 100, heightPct: 100, yPct: 14 };
+  const visualImageBorderRadius = s.visualImageBorderRadius ?? 12;
   const textSlots = s.textSlots ?? { heading: { yPct: 7 }, subheading: { yPct: 10 }, footer: { yPct: 80 } };
   const fontSettings = s.fontSettings ?? {
     heading: { size: 40, weight: 600 },
@@ -334,6 +337,15 @@ export function RightPanel({ settings, onSettingsChange, onContentGenerated }: R
             step={1}
             unit="%"
             onChange={(v) => onSettingsChange({ visualSlot: { ...visualSlot, yPct: v } })}
+          />
+          <SliderControl
+            label="Image corner radius"
+            value={visualImageBorderRadius}
+            min={0}
+            max={200}
+            step={1}
+            unit="px"
+            onChange={(v) => onSettingsChange({ visualImageBorderRadius: v })}
           />
         </CollapsibleBlock>
 

@@ -161,6 +161,8 @@ interface Settings {
   postSizeId?: string;
   /** Designer tab only: when true, image prompt requires solid white #FFFFFF background */
   designerWhiteBg?: boolean;
+  /** Corner radius (px at export resolution) for the generated visual in the preview slot */
+  visualImageBorderRadius?: number;
 }
 
 export default function App() {
@@ -212,6 +214,7 @@ export default function App() {
     },
     variations: [],
     activeVariation: 0,
+    visualImageBorderRadius: 12,
   });
   const [renderCount, setRenderCount] = useState(0);
   const [previewToolbar, setPreviewToolbar] = useState<PreviewToolbarApi | null>(null);

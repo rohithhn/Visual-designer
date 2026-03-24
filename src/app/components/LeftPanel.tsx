@@ -77,6 +77,7 @@ interface SettingsPayload {
   postSizeId?: string;
   /** Designer tab only — image generation uses solid white background when true */
   designerWhiteBg?: boolean;
+  visualImageBorderRadius?: number;
 }
 
 interface BlogSection {
