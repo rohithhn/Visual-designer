@@ -257,10 +257,13 @@ export default function App() {
     setMode(m);
     if (m === "general" || m === "blog") {
       setSettings((prev) => (prev ? { ...prev, mode: m } : prev));
+    } else if (m === "designer") {
+      setSettings((prev) => (prev ? { ...prev, mode: "general" } : prev));
     }
   }, []);
 
-  const isCanvasMode = mode === "general" || mode === "blog";
+  const isCanvasMode =
+    mode === "general" || mode === "blog" || mode === "designer";
 
   return (
     <ErrorBoundary>
@@ -292,7 +295,7 @@ export default function App() {
                 hasContent={hasContent}
                 provider={provider}
                 apiKeyRaw={apiKeyRaw}
-                mode={mode}
+                mode={mode === "blog" ? "blog" : "general"}
                 setMode={handleSetMode}
                 settings={settings}
                 registerPreviewToolbar={setPreviewToolbar}

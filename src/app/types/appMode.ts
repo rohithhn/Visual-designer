@@ -2,4 +2,5 @@ export type AppMode =
   | "general"
   | "blog"
   | "contentWriter"
-  | "researcher";
+  | "researcher"
+  | "designer";

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Eye, EyeOff, Check, Sun, Moon, Sparkles, BookOpen, PenLine, Newspaper } from "lucide-react";
+import { Eye, EyeOff, Check, Sun, Moon, Sparkles, BookOpen, PenLine, Newspaper, LayoutTemplate } from "lucide-react";
 import type { AppMode } from "@/app/types/appMode";
 import {
   ENKRYPT_GEMINI_CHAT_MODEL,
@@ -90,6 +90,7 @@ export function Header({ provider, setProvider, apiKeyRaw, setApiKeyRaw, mode, s
               { id: "blog" as const, label: "Blog", Icon: BookOpen },
               { id: "contentWriter" as const, label: "Content writer", Icon: PenLine },
               { id: "researcher" as const, label: "Researcher", Icon: Newspaper },
+              { id: "designer" as const, label: "Designer", Icon: LayoutTemplate },
             ] as const
           ).map(({ id, label, Icon }) => {
             const active = mode === id;
