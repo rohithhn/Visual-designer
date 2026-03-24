@@ -937,34 +937,6 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
         />
       </div>
 
-      {toolbar?.show && (
-        <div className="rounded-[var(--radius-card)] border border-border bg-card shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-border/80 bg-muted/25">
-            <div className="flex items-start gap-3">
-              <div className="w-1 h-9 bg-primary rounded-full shrink-0 mt-0.5" aria-hidden />
-              <div className="min-w-0 flex-1">
-                <h3 className="text-foreground m-0 leading-tight" style={{ fontWeight: 700, fontSize: "var(--text-sm)" }}>
-                  {toolbar.mode === "blog" ? "Blog visual" : "Generated output"}
-                </h3>
-                <p className="text-muted-foreground m-0 mt-1" style={{ fontSize: "var(--text-2xs)", lineHeight: 1.45 }}>
-                  {toolbar.mode === "blog"
-                    ? "Switch versions above; crop, download, and edit with prompt from the icons on the preview (top-left)."
-                    : toolbar.showVersionNav
-                      ? "Versions above when using 2+ variations per template. Crop, download, and edit from the preview (top-left)."
-                      : "Crop, download, and edit from the preview (top-left). Set Variations per Template to 2+ to show the carousel while generating."}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="px-4 py-3 sm:px-5 sm:py-4 border-t border-border/60 bg-muted/15">
-            <p className="text-muted-foreground m-0" style={{ fontSize: "var(--text-2xs)", lineHeight: 1.45 }}>
-              Open the pencil on the preview to describe image edits with a prompt.
-            </p>
-          </div>
-        </div>
-      )}
-
       {toolbar?.crop.isOpen && toolbar.crop.imageSrc && (
         <CropModal
           imageSrc={toolbar.crop.imageSrc}
