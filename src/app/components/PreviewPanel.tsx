@@ -73,6 +73,10 @@ const PT_INPUT =
 const BTN_ICON =
   "inline-flex items-center justify-center min-h-10 min-w-10 rounded-[var(--radius-button)] border-2 border-border bg-card text-foreground cursor-pointer transition-all hover:bg-muted hover:border-border active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:pointer-events-none disabled:opacity-40";
 
+/** Compact icon control for preview overlay (crop / download) */
+const BTN_ICON_SM =
+  "inline-flex items-center justify-center size-9 rounded-[var(--radius-button)] border-2 border-border bg-card text-foreground cursor-pointer transition-all hover:bg-muted hover:border-border active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:pointer-events-none disabled:opacity-40";
+
 function getBackgroundForSize(w: number, h: number): string {
   return w / h < 1.2 ? bg1x1 : bg16x9;
 }
@@ -797,17 +801,36 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
         role="region"
         aria-label="Live canvas preview"
       >
-        {toolbar?.show && (
-          <button
-            type="button"
-            onClick={() => toolbar.crop.open()}
-            disabled={!toolbar.crop.imageSrc}
-            className={`${BTN_ICON} absolute z-10 top-3 left-3 sm:top-4 sm:left-4 bg-card/95 shadow-sm backdrop-blur-[2px]`}
-            aria-label="Crop image"
-            title="Crop image"
+        {(toolbar?.show || hasCanvas) && (
+          <div
+            className="absolute z-10 top-3 left-3 sm:top-4 sm:left-4 flex items-center gap-1.5"
+            role="toolbar"
+            aria-label="Preview actions"
           >
-            <Crop className="w-5 h-5 text-primary shrink-0" aria-hidden />
-          </button>
+            {toolbar?.show && (
+              <button
+                type="button"
+                onClick={() => toolbar.crop.open()}
+                disabled={!toolbar.crop.imageSrc}
+                className={`${BTN_ICON_SM} bg-card/95 shadow-sm backdrop-blur-[2px]`}
+                aria-label="Crop image"
+                title="Crop image"
+              >
+                <Crop className="w-4 h-4 text-primary shrink-0" aria-hidden />
+              </button>
+            )}
+            {hasCanvas && (
+              <button
+                type="button"
+                onClick={handleDownload}
+                className="inline-flex items-center justify-center size-9 rounded-[var(--radius-button)] border-2 border-primary bg-primary text-primary-foreground cursor-pointer transition-all hover:opacity-[0.92] active:scale-[0.97] shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+                aria-label="Download PNG"
+                title="Download PNG"
+              >
+                <Download className="w-4 h-4 shrink-0" aria-hidden />
+              </button>
+            )}
+          </div>
         )}
         <canvas
           ref={canvasRef}
@@ -827,10 +850,10 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
                 </h3>
                 <p className="text-muted-foreground m-0 mt-1" style={{ fontSize: "var(--text-2xs)", lineHeight: 1.45 }}>
                   {toolbar.mode === "blog"
-                    ? "Switch versions above, crop, or describe edits—then download the composed PNG below."
+                    ? "Switch versions above, crop or download from the preview (top-left), then describe edits if needed."
                     : toolbar.showVersionNav
-                      ? "Versions above (2+ variations per template): switch outputs while more images generate. Then crop, edit, or download."
-                      : "Crop, edit, or download. Set Variations per Template to 2+ in Output to show the preview carousel and switch images while they generate."}
+                      ? "Versions above (2+ variations per template): switch outputs while more images generate. Crop, download, and edit from the preview top-left and below."
+                      : "Crop and download from the preview (top-left). Set Variations per Template to 2+ in Output to show the preview carousel while generating."}
                 </p>
               </div>
             </div>
@@ -897,17 +920,6 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
         />
       )}
 
-      {hasCanvas && (
-        <button
-          type="button"
-          onClick={handleDownload}
-          className="w-full py-3.5 px-6 rounded-[var(--radius-button)] border-2 border-primary bg-primary text-primary-foreground cursor-pointer transition-all hover:opacity-[0.96] active:scale-[0.99] shadow-sm flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-card"
-          style={{ fontWeight: 700, fontSize: "var(--text-base)" }}
-        >
-          <Download className="w-4 h-4 shrink-0" aria-hidden />
-          Download PNG
-        </button>
-      )}
     </div>
   );
 }
