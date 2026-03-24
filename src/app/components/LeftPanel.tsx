@@ -1366,7 +1366,9 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
     setOriginalVariations([]);
     setVisualImage(null);
     setActiveVariation(0);
-    updateSettings({ visualImage: null, variations: [], activeVariation: 0 });
+    // Always pass `content` here: props may still be stale right after handleGenerateStructure
+    // (parent has not re-rendered), so spreading settingsFromProps alone would drop structured text.
+    updateSettings({ visualImage: null, variations: [], activeVariation: 0, content });
     onGenerateVisual();
 
     const themesToUse = selectedThemes.length > 0 ? selectedThemes : [theme];
@@ -1394,7 +1396,7 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
                 activeVariation: 0,
               });
             } else {
-              updateSettings({ variations: [...accumulated] });
+              updateSettings({ variations: [...accumulated], content });
             }
             onGenerateVisual();
           }
