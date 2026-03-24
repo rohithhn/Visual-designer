@@ -4,7 +4,7 @@ export type EnkryptLlmProvider = "openai" | "gemini";
 
 /**
  * Single LLM entry for Content writer and Researcher.
- * Uses the same stack as `llmText.completeText`: Header provider + API key → OpenAI `gpt-4.1` or Gemini `gemini-2.0-flash`.
+ * Uses the same stack as `llmText.completeText`: Header provider + API key → models in `llmText` (e.g. gpt-4o / gemini-2.5-flash).
  */
 export function runEnkryptLlm(
   apiKeyRaw: string,

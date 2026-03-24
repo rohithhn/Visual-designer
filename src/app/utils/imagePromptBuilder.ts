@@ -4,6 +4,8 @@
  * content-aware, creatively directed output.
  */
 
+import { ENKRYPT_GEMINI_CHAT_MODEL, ENKRYPT_OPENAI_CHAT_MODEL } from "./llmText";
+
 export interface GeneratedContent {
   heading: string;
   subheading: string;
@@ -124,7 +126,7 @@ EXTRACTED FOOTER: ${content.footer}
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + apiKey },
         body: JSON.stringify({
-          model: "gpt-4.1",
+          model: ENKRYPT_OPENAI_CHAT_MODEL,
           messages: [{ role: "user", content: prompt }],
           temperature: 0.75,
           max_tokens: 700,
@@ -137,7 +139,7 @@ EXTRACTED FOOTER: ${content.footer}
     }
 
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${ENKRYPT_GEMINI_CHAT_MODEL}:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

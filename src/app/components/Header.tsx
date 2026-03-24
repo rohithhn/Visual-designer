@@ -4,6 +4,7 @@ import type { AppMode } from "@/app/types/appMode";
 import {
   ENKRYPT_GEMINI_CHAT_MODEL,
   ENKRYPT_OPENAI_CHAT_MODEL,
+  ENKRYPT_OPENAI_FAST_MODEL,
 } from "@/app/utils/llmText";
 import svgPaths from "../../imports/svg-sxifsdxhhb";
 import imgAvatar from "@/assets/placeholder-theme.svg";
@@ -244,6 +245,21 @@ export function Header({ provider, setProvider, apiKeyRaw, setApiKeyRaw, mode, s
                         </button>
                       ))}
                     </div>
+                  </div>
+
+                  <div
+                    className="rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-muted-foreground"
+                    style={{ fontSize: "var(--text-xs)", lineHeight: 1.5 }}
+                  >
+                    <span className="text-foreground font-semibold block mb-1">Latest models</span>
+                    Requests use each provider&apos;s current defaults shipped in this app: OpenAI{" "}
+                    <span className="text-foreground font-mono">{ENKRYPT_OPENAI_CHAT_MODEL}</span> for
+                    main chat and layout work,{" "}
+                    <span className="text-foreground font-mono">{ENKRYPT_GEMINI_CHAT_MODEL}</span> for
+                    Gemini, and{" "}
+                    <span className="text-foreground font-mono">{ENKRYPT_OPENAI_FAST_MODEL}</span> for
+                    lighter OpenAI tasks (e.g. Studio text helpers). The header pill shows the chat
+                    model for your selected provider.
                   </div>
 
                   <div>

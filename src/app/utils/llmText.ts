@@ -3,9 +3,19 @@
  * Prefer `runEnkryptLlm` from `enkryptLlmApi.ts` in product panels so all text features share one entry point.
  */
 
-/** Shown in Header; keep in sync with chat `completeText` requests. */
-export const ENKRYPT_OPENAI_CHAT_MODEL = "gpt-4.1";
-export const ENKRYPT_GEMINI_CHAT_MODEL = "gemini-2.0-flash";
+/**
+ * Model IDs for this app — use each vendor’s current default chat models.
+ * OpenAI: `gpt-4o` tracks the flagship 4o line; Gemini: `gemini-2.5-flash` (see Google AI docs).
+ */
+export const ENKRYPT_OPENAI_CHAT_MODEL = "gpt-4o";
+/** Cheaper OpenAI calls (e.g. Studio helpers) — still on the current 4o-mini line. */
+export const ENKRYPT_OPENAI_FAST_MODEL = "gpt-4o-mini";
+export const ENKRYPT_GEMINI_CHAT_MODEL = "gemini-2.5-flash";
+
+/** Gemini `generateContent` URL for the configured chat model. */
+export function enkryptGeminiGenerateUrl(apiKey: string): string {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${ENKRYPT_GEMINI_CHAT_MODEL}:generateContent?key=${apiKey}`;
+}
 
 export type CompleteTextOptions = {
   /** OpenAI: max_tokens. Gemini: maxOutputTokens. Capped per provider. */

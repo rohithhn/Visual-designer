@@ -10,6 +10,7 @@ import { getVisualSlotDimensions } from "@/app/utils/visualSlotLayout";
 import { buildVisualBrief, buildContentAndVisualBlock } from "@/app/utils/imagePromptBuilder";
 import type { PreviewToolbarApi } from "@/app/types/previewToolbar";
 import type { AppMode } from "@/app/types/appMode";
+import { ENKRYPT_GEMINI_CHAT_MODEL, ENKRYPT_OPENAI_CHAT_MODEL } from "@/app/utils/llmText";
 
 /* ── Types ── */
 interface GeneratedContent {
@@ -1148,7 +1149,7 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
         response = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: "Bearer " + apiKey },
-          body: JSON.stringify({ model: "gpt-4.1", messages, temperature: 0.7, max_tokens: 500 }),
+          body: JSON.stringify({ model: ENKRYPT_OPENAI_CHAT_MODEL, messages, temperature: 0.7, max_tokens: 500 }),
         });
       } else {
         const parts: any[] = [];
@@ -1158,7 +1159,7 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
           parts.push({ inlineData: { mimeType: mime, data: uploadedB64 } });
         }
         parts.push({ text: textPrompt });
-        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${ENKRYPT_GEMINI_CHAT_MODEL}:generateContent?key=${apiKey}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contents: [{ parts }] }),
@@ -1313,7 +1314,7 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
         parts.push({ text: imgPrompt });
 
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${ENKRYPT_GEMINI_CHAT_MODEL}:generateContent?key=${apiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1441,7 +1442,7 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
         ];
 
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${ENKRYPT_GEMINI_CHAT_MODEL}:generateContent?key=${apiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1536,7 +1537,7 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
         ];
 
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/${ENKRYPT_GEMINI_CHAT_MODEL}:generateContent?key=${apiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -1690,7 +1691,7 @@ Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation
         response = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: "Bearer " + apiKey },
-          body: JSON.stringify({ model: "gpt-4.1", messages, temperature: 0.7, max_tokens: 2000 }),
+          body: JSON.stringify({ model: ENKRYPT_OPENAI_CHAT_MODEL, messages, temperature: 0.7, max_tokens: 2000 }),
         });
       } else {
         const parts: any[] = [];
@@ -1700,7 +1701,7 @@ Return ONLY a valid JSON array with 3 to 5 items — no markdown, no explanation
           parts.push({ inlineData: { mimeType: mime, data: uploadedB64 } });
         }
         parts.push({ text: splitPrompt });
-        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+        response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${ENKRYPT_GEMINI_CHAT_MODEL}:generateContent?key=${apiKey}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contents: [{ parts }] }),
