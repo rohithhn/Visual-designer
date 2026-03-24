@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from "react";
-import { Download, ChevronLeft, ChevronRight, Crop, Pencil, Loader2 } from "lucide-react";
+import { Download, ChevronLeft, ChevronRight, Crop, Pencil, Loader2, X } from "lucide-react";
 import { CropModal } from "./CropModal";
 import type { PreviewToolbarApi } from "@/app/types/previewToolbar";
 import enkryptLogo from "@/assets/enkrypt-logo.png";
@@ -122,6 +122,7 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
   const skipSlotOutlinesRef = useRef(false);
   const pendingExportCallbackRef = useRef<(() => void) | null>(null);
   const [exportTrigger, setExportTrigger] = useState(0);
+  const [editOverlayOpen, setEditOverlayOpen] = useState(false);
 
   const s = settings;
   const currentSize = s?.size ?? { width: 1080, height: 1080 };
@@ -669,6 +670,19 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
     return () => window.removeEventListener("keydown", onKey);
   }, [toolbar]);
 
+  useEffect(() => {
+    if (!toolbar?.show) setEditOverlayOpen(false);
+  }, [toolbar?.show]);
+
+  useEffect(() => {
+    if (!editOverlayOpen) return;
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setEditOverlayOpen(false);
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [editOverlayOpen]);
+
   const activeThumb = toolbar ? toolbar.navLabelIndex - 1 : 0;
 
   const vb = toolbar?.visualBatch ?? null;
@@ -830,40 +844,48 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
                 <Download className="w-4 h-4 shrink-0" aria-hidden />
               </button>
             )}
+            {toolbar?.show && (
+              <button
+                type="button"
+                onClick={() => setEditOverlayOpen((o) => !o)}
+                disabled={!toolbar.crop.imageSrc}
+                className={`${BTN_ICON_SM} bg-card/95 shadow-sm backdrop-blur-[2px] ${editOverlayOpen ? "ring-2 ring-primary/50 ring-offset-2 ring-offset-transparent" : ""}`}
+                aria-label="Edit with prompt"
+                title="Edit with prompt"
+                aria-expanded={editOverlayOpen}
+              >
+                <Pencil className="w-4 h-4 text-primary shrink-0" aria-hidden />
+              </button>
+            )}
           </div>
         )}
-        <canvas
-          ref={canvasRef}
-          className="max-w-full max-h-full rounded-[var(--radius-card)] ring-1 ring-black/[0.06] dark:ring-white/[0.08]"
-          style={{ boxShadow: "0 20px 50px rgba(0,0,0,0.12)" }}
-        />
-      </div>
-
-      {toolbar?.show && (
-        <div className="rounded-[var(--radius-card)] border border-border bg-card shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-border/80 bg-muted/25">
-            <div className="flex items-start gap-3">
-              <div className="w-1 h-9 bg-primary rounded-full shrink-0 mt-0.5" aria-hidden />
-              <div className="min-w-0 flex-1">
-                <h3 className="text-foreground m-0 leading-tight" style={{ fontWeight: 700, fontSize: "var(--text-sm)" }}>
-                  {toolbar.mode === "blog" ? "Blog visual" : "Generated output"}
-                </h3>
-                <p className="text-muted-foreground m-0 mt-1" style={{ fontSize: "var(--text-2xs)", lineHeight: 1.45 }}>
-                  {toolbar.mode === "blog"
-                    ? "Switch versions above, crop or download from the preview (top-left), then describe edits if needed."
-                    : toolbar.showVersionNav
-                      ? "Versions above (2+ variations per template): switch outputs while more images generate. Crop, download, and edit from the preview top-left and below."
-                      : "Crop and download from the preview (top-left). Set Variations per Template to 2+ in Output to show the preview carousel while generating."}
-                </p>
+        {editOverlayOpen && toolbar?.show && (
+          <>
+            <div
+              className="absolute inset-0 z-[15] rounded-[var(--radius-card)] bg-black/30 backdrop-blur-[2px] cursor-pointer"
+              aria-hidden
+              onClick={() => setEditOverlayOpen(false)}
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="preview-edit-overlay-title"
+              className="absolute z-20 top-14 left-3 right-3 sm:right-auto sm:max-w-[min(100%,22rem)] rounded-[var(--radius)] border border-border/80 bg-card/98 backdrop-blur-md shadow-lg p-3 sm:p-4 space-y-2 pointer-events-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <h2 id="preview-edit-overlay-title" className="text-foreground m-0 leading-tight pr-1" style={{ fontWeight: 700, fontSize: "var(--text-sm)" }}>
+                  Edit with prompt
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setEditOverlayOpen(false)}
+                  className={`${BTN_ICON_SM} shrink-0 bg-muted/80 border-border/80`}
+                  aria-label="Close edit panel"
+                >
+                  <X className="w-4 h-4" aria-hidden />
+                </button>
               </div>
-            </div>
-          </div>
-
-          <div className="p-4 sm:p-5 space-y-4">
-            <div className="rounded-[var(--radius)] border border-border/80 bg-muted/20 p-3 sm:p-4 space-y-2">
-              <label htmlFor="preview-edit-prompt" className="block text-foreground cursor-pointer" style={{ fontWeight: 700, fontSize: "var(--text-sm)" }}>
-                Edit with prompt
-              </label>
               {toolbar.edit.sectionHint ? (
                 <p className="text-muted-foreground m-0" style={{ fontSize: "var(--text-2xs)", lineHeight: 1.45 }}>
                   {toolbar.edit.sectionHint}
@@ -884,13 +906,13 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
                 type="button"
                 onClick={() => toolbar.edit.apply()}
                 disabled={!toolbar.edit.prompt.trim() || toolbar.edit.loading}
-                className="w-full py-3 px-4 rounded-[var(--radius-button)] border-2 cursor-pointer transition-all flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99] disabled:active:scale-100"
+                className="w-full py-2.5 px-3 rounded-[var(--radius-button)] border-2 cursor-pointer transition-all flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.99] disabled:active:scale-100"
                 style={{
                   background: "transparent",
                   color: "var(--primary)",
                   borderColor: "var(--primary)",
                   fontWeight: 700,
-                  fontSize: "var(--text-base)",
+                  fontSize: "var(--text-sm)",
                 }}
               >
                 {toolbar.edit.loading ? (
@@ -906,6 +928,39 @@ export function PreviewPanel({ settings, shouldRender, toolbar }: PreviewPanelPr
                 )}
               </button>
             </div>
+          </>
+        )}
+        <canvas
+          ref={canvasRef}
+          className="max-w-full max-h-full rounded-[var(--radius-card)] ring-1 ring-black/[0.06] dark:ring-white/[0.08]"
+          style={{ boxShadow: "0 20px 50px rgba(0,0,0,0.12)" }}
+        />
+      </div>
+
+      {toolbar?.show && (
+        <div className="rounded-[var(--radius-card)] border border-border bg-card shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-border/80 bg-muted/25">
+            <div className="flex items-start gap-3">
+              <div className="w-1 h-9 bg-primary rounded-full shrink-0 mt-0.5" aria-hidden />
+              <div className="min-w-0 flex-1">
+                <h3 className="text-foreground m-0 leading-tight" style={{ fontWeight: 700, fontSize: "var(--text-sm)" }}>
+                  {toolbar.mode === "blog" ? "Blog visual" : "Generated output"}
+                </h3>
+                <p className="text-muted-foreground m-0 mt-1" style={{ fontSize: "var(--text-2xs)", lineHeight: 1.45 }}>
+                  {toolbar.mode === "blog"
+                    ? "Switch versions above; crop, download, and edit with prompt from the icons on the preview (top-left)."
+                    : toolbar.showVersionNav
+                      ? "Versions above when using 2+ variations per template. Crop, download, and edit from the preview (top-left)."
+                      : "Crop, download, and edit from the preview (top-left). Set Variations per Template to 2+ to show the carousel while generating."}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="px-4 py-3 sm:px-5 sm:py-4 border-t border-border/60 bg-muted/15">
+            <p className="text-muted-foreground m-0" style={{ fontSize: "var(--text-2xs)", lineHeight: 1.45 }}>
+              Open the pencil on the preview to describe image edits with a prompt.
+            </p>
           </div>
         </div>
       )}
