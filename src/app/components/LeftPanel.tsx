@@ -1362,8 +1362,15 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
     setVisualLoading(true);
     setError("");
 
+    setVariations([]);
+    setOriginalVariations([]);
+    setVisualImage(null);
+    setActiveVariation(0);
+    updateSettings({ visualImage: null, variations: [], activeVariation: 0 });
+    onGenerateVisual();
+
     const themesToUse = selectedThemes.length > 0 ? selectedThemes : [theme];
-    const newVariations: string[] = [];
+    const accumulated: string[] = [];
 
     try {
       // Build a content-aware visual brief from pasted content + heading/subheading/footer for better image prompting
@@ -1373,19 +1380,29 @@ export function LeftPanel({ onContentGenerated, onSettingsChange, onGenerateVisu
       for (const tid of themesToUse) {
         for (let v = 0; v < variationCount; v++) {
           const dataUrl = await generateSingleVisual(content, tid, idx, contentUploadedImage, true, visualBrief);
-          if (dataUrl) newVariations.push(dataUrl);
+          if (dataUrl) {
+            accumulated.push(dataUrl);
+            setVariations([...accumulated]);
+            setOriginalVariations([...accumulated]);
+            if (accumulated.length === 1) {
+              setVisualImage(dataUrl);
+              setActiveVariation(0);
+              updateSettings({
+                visualImage: dataUrl,
+                content,
+                variations: [...accumulated],
+                activeVariation: 0,
+              });
+            } else {
+              updateSettings({ variations: [...accumulated] });
+            }
+            onGenerateVisual();
+          }
           idx++;
         }
       }
 
-      if (newVariations.length > 0) {
-        setVariations(newVariations);
-        setOriginalVariations([...newVariations]);
-        setActiveVariation(0);
-        setVisualImage(newVariations[0]);
-        updateSettings({ visualImage: newVariations[0], content, variations: newVariations, activeVariation: 0 });
-        onGenerateVisual();
-      } else {
+      if (accumulated.length === 0) {
         showError("No images were generated.");
       }
     } catch (err: any) {
