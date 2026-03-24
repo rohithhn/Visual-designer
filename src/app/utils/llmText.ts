@@ -3,6 +3,10 @@
  * Prefer `runEnkryptLlm` from `enkryptLlmApi.ts` in product panels so all text features share one entry point.
  */
 
+/** Shown in Header; keep in sync with chat `completeText` requests. */
+export const ENKRYPT_OPENAI_CHAT_MODEL = "gpt-4.1";
+export const ENKRYPT_GEMINI_CHAT_MODEL = "gemini-2.0-flash";
+
 export type CompleteTextOptions = {
   /** OpenAI: max_tokens. Gemini: maxOutputTokens. Capped per provider. */
   maxOutputTokens?: number;
@@ -36,7 +40,7 @@ export async function completeText(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4.1",
+        model: ENKRYPT_OPENAI_CHAT_MODEL,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -57,7 +61,7 @@ export async function completeText(
   }
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${ENKRYPT_GEMINI_CHAT_MODEL}:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -1,6 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { Eye, EyeOff, Check, Sun, Moon, Sparkles, BookOpen, PenLine, Newspaper } from "lucide-react";
 import type { AppMode } from "@/app/types/appMode";
+import {
+  ENKRYPT_GEMINI_CHAT_MODEL,
+  ENKRYPT_OPENAI_CHAT_MODEL,
+} from "@/app/utils/llmText";
 import svgPaths from "../../imports/svg-sxifsdxhhb";
 import imgAvatar from "@/assets/placeholder-theme.svg";
 import enkryptLogo from "@/assets/enkrypt-logo.png";
@@ -113,7 +117,16 @@ export function Header({ provider, setProvider, apiKeyRaw, setApiKeyRaw, mode, s
         {/* ── Right: Actions ── */}
         <div className="flex gap-[2px] items-center">
           {/* API status pill */}
-          <div className="flex items-center gap-[6px] px-[10px] py-[4px] mr-[4px] rounded-[9999px] bg-muted">
+          <div
+            className="flex items-center gap-[6px] px-[10px] py-[4px] mr-[4px] rounded-[9999px] bg-muted max-w-[min(100vw-24rem,280px)]"
+            title={
+              apiConfigured
+                ? provider === "openai"
+                  ? `OpenAI chat: ${ENKRYPT_OPENAI_CHAT_MODEL}`
+                  : `Gemini: ${ENKRYPT_GEMINI_CHAT_MODEL}`
+                : "Add an API key in Settings"
+            }
+          >
             <div
               className="w-[6px] h-[6px] rounded-full shrink-0"
               style={{
@@ -121,13 +134,22 @@ export function Header({ provider, setProvider, apiKeyRaw, setApiKeyRaw, mode, s
               }}
             />
             <span
-              className="text-muted-foreground whitespace-nowrap"
+              className="text-muted-foreground whitespace-nowrap flex items-center gap-[6px] min-w-0"
               style={{ fontSize: "var(--text-xs)", fontWeight: "var(--font-weight-medium)" as any }}
             >
-              {apiConfigured
-                ? `${provider === "openai" ? "OpenAI" : "Gemini"}`
-                : "No API Key"
-              }
+              {apiConfigured ? (
+                <>
+                  <span className="shrink-0">{provider === "openai" ? "OpenAI" : "Gemini"}</span>
+                  <span
+                    className="text-foreground/80 font-mono truncate"
+                    style={{ fontSize: "var(--text-2xs)", fontWeight: 600 }}
+                  >
+                    {provider === "openai" ? ENKRYPT_OPENAI_CHAT_MODEL : ENKRYPT_GEMINI_CHAT_MODEL}
+                  </span>
+                </>
+              ) : (
+                "No API Key"
+              )}
             </span>
           </div>
 
