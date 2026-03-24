@@ -159,6 +159,8 @@ interface Settings {
   activeVariation: number;
   /** Designer tab only: "1080x1080-trns" uses alternate 1:1 background in preview */
   postSizeId?: string;
+  /** Designer tab only: when true, image prompt requires solid white #FFFFFF background */
+  designerWhiteBg?: boolean;
 }
 
 export default function App() {
@@ -259,11 +261,25 @@ export default function App() {
     setMode(m);
     if (m === "blog") {
       setSettings((prev) =>
-        prev ? { ...prev, mode: "blog", postSizeId: undefined } : prev,
+        prev
+          ? {
+              ...prev,
+              mode: "blog",
+              postSizeId: undefined,
+              designerWhiteBg: undefined,
+            }
+          : prev,
       );
     } else if (m === "general") {
       setSettings((prev) =>
-        prev ? { ...prev, mode: "general", postSizeId: undefined } : prev,
+        prev
+          ? {
+              ...prev,
+              mode: "general",
+              postSizeId: undefined,
+              designerWhiteBg: undefined,
+            }
+          : prev,
       );
     } else if (m === "designer") {
       setSettings((prev) => (prev ? { ...prev, mode: "general" } : prev));
